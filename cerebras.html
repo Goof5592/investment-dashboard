@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cerebras 購入判断ダッシュボード</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --card: #1a1d2e;
+      --border: #2a2d3e;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+      --blue: #3b82f6;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      padding: 16px;
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    h1 { font-size: 1.25rem; font-weight: 700; }
+    .subtitle { color: var(--muted); font-size: 0.78rem; margin-top: 3px; }
+    .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+    .refresh-btn {
+      background: var(--blue); color: white; border: none;
+      padding: 8px 14px; border-radius: 8px; cursor: pointer; font-size: 0.82rem;
+    }
+    .refresh-btn:hover { opacity: 0.85; }
+    .last-updated { color: var(--muted); font-size: 0.72rem; }
+
+    /* ===== BIG DECISION INDICATOR ===== */
+    #decisionBanner {
+      border-radius: 16px;
+      padding: 24px 20px;
+      margin-bottom: 16px;
+      text-align: center;
+      transition: background 0.4s;
+    }
+    .decision-red    { background: linear-gradient(135deg, #3b0a0a, #1a0505); border: 2px solid #ef4444; }
+    .decision-yellow { background: linear-gradient(135deg, #3b2a00, #1a1400); border: 2px solid #f59e0b; }
+    .decision-green  { background: linear-gradient(135deg, #0a3b1a, #051a0a); border: 2px solid #22c55e; }
+    .decision-gray   { background: var(--card); border: 2px solid var(--border); }
+
+    .decision-emoji  { font-size: 3rem; margin-bottom: 8px; }
+    .decision-label  { font-size: 1.8rem; font-weight: 800; margin-bottom: 8px; letter-spacing: 0.03em; }
+    .decision-reason { font-size: 0.88rem; color: #cbd5e1; line-height: 1.6; }
+
+    /* ===== KEY METRICS ===== */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .metric-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+    }
+    .metric-label  { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+    .metric-value  { font-size: 1.3rem; font-weight: 700; }
+    .metric-sub    { font-size: 0.7rem; color: var(--muted); margin-top: 3px; }
+    .up   { color: var(--green); }
+    .down { color: var(--red); }
+    .warn { color: var(--yellow); }
+    .neutral { color: var(--muted); }
+
+    /* ===== CHART ===== */
+    .chart-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .chart-title { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+    .chart-wrapper { position: relative; height: 200px; }
+
+    /* ===== CHECKLIST ===== */
+    .checklist-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 16px;
+    }
+    .checklist-title { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 14px; }
+    .check-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .check-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .check-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 1px; }
+    .check-body { flex: 1; }
+    .check-q    { font-size: 0.88rem; font-weight: 600; margin-bottom: 3px; }
+    .check-hint { font-size: 0.75rem; color: var(--muted); line-height: 1.5; }
+    .check-status { font-size: 0.75rem; font-weight: 600; margin-top: 4px; }
+    .status-ok   { color: var(--green); }
+    .status-ng   { color: var(--red); }
+    .status-wait { color: var(--yellow); }
+    .status-user { color: var(--blue); }
+
+    /* ===== 2-col sections ===== */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .info-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .info-title { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 8px;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-key { font-size: 0.78rem; color: var(--muted); flex-shrink: 0; }
+    .info-val { font-size: 0.82rem; font-weight: 500; text-align: right; }
+
+    /* risk/chance list */
+    .risk-list { list-style: none; }
+    .risk-list li { font-size: 0.8rem; padding: 6px 0; border-bottom: 1px solid var(--border); line-height: 1.45; display: flex; gap: 8px; }
+    .risk-list li:last-child { border-bottom: none; }
+
+    /* ===== TIMELINE ===== */
+    .timeline-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+    }
+    .tl-item {
+      display: flex;
+      gap: 14px;
+      padding: 10px 0;
+      position: relative;
+    }
+    .tl-item:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 11px;
+      top: 30px;
+      bottom: -10px;
+      width: 2px;
+      background: var(--border);
+    }
+    .tl-dot {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      font-weight: 700;
+      margin-top: 1px;
+    }
+    .tl-dot-done   { background: var(--green); color: #fff; }
+    .tl-dot-now    { background: var(--yellow); color: #000; }
+    .tl-dot-future { background: var(--border); color: var(--muted); }
+    .tl-body { flex: 1; }
+    .tl-title { font-size: 0.85rem; font-weight: 600; margin-bottom: 2px; }
+    .tl-desc  { font-size: 0.75rem; color: var(--muted); line-height: 1.5; }
+
+    /* ===== SETTINGS ===== */
+    .settings-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+    }
+    .settings-note { font-size: 0.75rem; color: var(--muted); margin-top: 6px; }
+    .settings-row  { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+    .settings-row label { font-size: 0.78rem; color: var(--muted); }
+    .settings-row input {
+      background: var(--bg); border: 1px solid var(--border);
+      color: var(--text); padding: 5px 10px; border-radius: 6px; font-size: 0.83rem; width: 90px;
+    }
+    .save-btn {
+      background: #1e3a5f; color: #60a5fa; border: 1px solid #2a4a7f;
+      padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 0.78rem;
+    }
+    .save-btn:hover { background: #2a4a7f; }
+    .save-msg { font-size: 0.75rem; color: var(--green); }
+
+    .section-label {
+      font-size: 0.72rem; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.06em; margin-bottom: 8px; padding-left: 4px;
+    }
+
+    footer { text-align: center; color: var(--muted); font-size: 0.68rem; padding: 12px 0 24px; line-height: 1.9; }
+    a.back-link { color: var(--blue); font-size: 0.78rem; text-decoration: none; }
+    a.back-link:hover { text-decoration: underline; }
+
+    @media (max-width: 600px) {
+      .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+      .two-col { grid-template-columns: 1fr; }
+      .decision-label { font-size: 1.4rem; }
+    }
+    @media (max-width: 380px) {
+      .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>⚡ Cerebras 購入判断ダッシュボード</h1>
+    <div class="subtitle">AIチップ企業 | NASDAQ上場 | 初心者向け購入タイミング分析</div>
+  </div>
+  <div class="header-right">
+    <button class="refresh-btn" onclick="init()">↻ 更新</button>
+    <div class="last-updated" id="lastUpdated">—</div>
+  </div>
+</header>
+
+<!-- ===== BIG DECISION ===== -->
+<div id="decisionBanner" class="decision-gray">
+  <div class="decision-emoji" id="decisionEmoji">⏳</div>
+  <div class="decision-label" id="decisionLabel">データ取得中...</div>
+  <div class="decision-reason" id="decisionReason">株価を確認しています。しばらくお待ちください。</div>
+</div>
+
+<!-- ===== KEY METRICS ===== -->
+<div class="metrics-grid">
+  <div class="metric-card">
+    <div class="metric-label">現在株価</div>
+    <div class="metric-value" id="currentPrice">—</div>
+    <div class="metric-sub">USD</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">IPO基準価格比</div>
+    <div class="metric-value" id="ipoChange">—</div>
+    <div class="metric-sub" id="ipoChangeSub">基準: $<span id="ipoPriceRef">130</span></div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">上場からの日数</div>
+    <div class="metric-value" id="daysListed">—</div>
+    <div class="metric-sub">日経過</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label">前日比</div>
+    <div class="metric-value" id="dayChange">—</div>
+    <div class="metric-sub" id="dayChangePct">—</div>
+  </div>
+</div>
+
+<!-- ===== CHART ===== -->
+<div class="chart-card">
+  <div class="chart-title">株価チャート（上場後の推移）── オレンジ点線がIPO基準価格</div>
+  <div class="chart-wrapper">
+    <canvas id="priceChart"></canvas>
+  </div>
+</div>
+
+<!-- ===== CHECKLIST ===== -->
+<div class="checklist-card">
+  <div class="checklist-title">📋 購入前チェックリスト ── 全部✅になったら検討OK</div>
+
+  <div class="check-item">
+    <div class="check-icon" id="chk1Icon">⏳</div>
+    <div class="check-body">
+      <div class="check-q">① 上場後 2週間以上 経過している？</div>
+      <div class="check-hint">IPO直後は機関投資家の売買で価格が荒れます。2週間待つと落ち着いてきます。</div>
+      <div class="check-status" id="chk1Status">確認中...</div>
+    </div>
+  </div>
+
+  <div class="check-item">
+    <div class="check-icon" id="chk2Icon">⏳</div>
+    <div class="check-body">
+      <div class="check-q">② 株価がIPO価格の +20%以内 に収まっている？</div>
+      <div class="check-hint">初値から大きく上がっているときは「高値掴み」のリスクあり。+20%超なら待ちましょう。</div>
+      <div class="check-status" id="chk2Status">確認中...</div>
+    </div>
+  </div>
+
+  <div class="check-item">
+    <div class="check-icon">👤</div>
+    <div class="check-body">
+      <div class="check-q">③ 直近2週間以内に決算・重大発表がない？</div>
+      <div class="check-hint">発表前後は株価が大きく動きます。発表後に落ち着いてから買うのが無難です。</div>
+      <div class="check-status status-user">→ 自分で確認してください（ニュースをチェック）</div>
+    </div>
+  </div>
+
+  <div class="check-item">
+    <div class="check-icon">👤</div>
+    <div class="check-body">
+      <div class="check-q">④ 証券会社でCerebrasが購入できる状態になっている？</div>
+      <div class="check-hint">新規上場のUS株は日本の証券会社で取り扱い開始まで数週間かかることがあります。SBI証券・楽天証券で銘柄検索して確認しましょう。</div>
+      <div class="check-status status-user">→ 自分で確認してください（証券会社サイトで検索）</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TIMELINE ===== -->
+<div class="section-label">購入までのロードマップ</div>
+<div class="timeline-card">
+  <div class="tl-item">
+    <div class="tl-dot tl-dot-done" id="tl1dot">✓</div>
+    <div class="tl-body">
+      <div class="tl-title">IPO上場（2026/05/13〜14）</div>
+      <div class="tl-desc">IPO価格帯 $125〜135 で取引開始。初日は乱高下するので見るだけでOK。</div>
+    </div>
+  </div>
+  <div class="tl-item">
+    <div class="tl-dot tl-dot-now" id="tl2dot">▶</div>
+    <div class="tl-body">
+      <div class="tl-title" id="tl2title">ウォッチ期間（上場〜2週間）</div>
+      <div class="tl-desc">毎日このページで株価を確認。乱高下していないか、どのくらいで落ち着くかを観察する。</div>
+    </div>
+  </div>
+  <div class="tl-item">
+    <div class="tl-dot tl-dot-future" id="tl3dot">3</div>
+    <div class="tl-body">
+      <div class="tl-title">チェックリスト確認（2週間後〜）</div>
+      <div class="tl-desc">上の4つのチェックが全て✅になったら購入を検討。まだ✅でないものがあれば待つ。</div>
+    </div>
+  </div>
+  <div class="tl-item">
+    <div class="tl-dot tl-dot-future" id="tl4dot">4</div>
+    <div class="tl-body">
+      <div class="tl-title">購入（特定口座で1〜2株）</div>
+      <div class="tl-desc">⚠ NISAではなく特定口座で。1〜2株の少量から始める。損しても許容できる額で。</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== RISK vs CHANCE ===== -->
+<div class="two-col">
+  <div class="info-card">
+    <div class="info-title">⚠️ リスク（悪いシナリオ）</div>
+    <ul class="risk-list">
+      <li><span>🔴</span>Nvidiaとの競争に負けてシェアが取れない</li>
+      <li><span>🔴</span>OpenAI依存が高く、契約が終わると売上激減</li>
+      <li><span>🔴</span>上場後に投資家が売り、株価が大幅下落</li>
+      <li><span>🔴</span>まだ赤字の可能性が高い（成長株の宿命）</li>
+      <li><span>🔴</span>円高になると円換算で目減り</li>
+    </ul>
+  </div>
+  <div class="info-card">
+    <div class="info-title">✨ チャンス（良いシナリオ）</div>
+    <ul class="risk-list">
+      <li><span>🟢</span>AI需要拡大でNvidiaの代替として急成長</li>
+      <li><span>🟢</span>OpenAI $20B契約が安定収益の基盤に</li>
+      <li><span>🟢</span>AI専用チップの需要は今後も急増する</li>
+      <li><span>🟢</span>時価総額$26-27Bは成長余地が大きい</li>
+      <li><span>🟢</span>将来NASDAQ 100に組み入れられれば大幅上昇</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ===== COMPANY INFO ===== -->
+<div class="two-col">
+  <div class="info-card">
+    <div class="info-title">🏢 会社の基本情報</div>
+    <div class="info-row"><span class="info-key">会社名</span><span class="info-val">Cerebras Systems</span></div>
+    <div class="info-row"><span class="info-key">何をしてる？</span><span class="info-val">AIに特化したチップ（半導体）を作っている</span></div>
+    <div class="info-row"><span class="info-key">Nvidiaとの違い</span><span class="info-val">AI処理に超特化した設計。GPUより効率的という主張</span></div>
+    <div class="info-row"><span class="info-key">主な顧客</span><span class="info-val">OpenAI（$20B契約）など</span></div>
+    <div class="info-row"><span class="info-key">上場市場</span><span class="info-val">NASDAQ</span></div>
+    <div class="info-row"><span class="info-key">IPO価格帯</span><span class="info-val">$125〜135（基準 $130）</span></div>
+    <div class="info-row"><span class="info-key">時価総額</span><span class="info-val">$26〜27B（約3.8兆円）</span></div>
+  </div>
+  <div class="info-card">
+    <div class="info-title">💡 投資家目線のポイント</div>
+    <div class="info-row"><span class="info-key">投資スタイル</span><span class="info-val">成長株（ハイリスク・ハイリターン）</span></div>
+    <div class="info-row"><span class="info-key">推奨口座</span><span class="info-val">特定口座（NISAは不向き）</span></div>
+    <div class="info-row"><span class="info-key">推奨株数</span><span class="info-val">1〜2株から</span></div>
+    <div class="info-row"><span class="info-key">1株の目安</span><span class="info-val">約$130 ≒ 約19,500円</span></div>
+    <div class="info-row"><span class="info-key">損切りライン</span><span class="info-val">-20〜30%（自分で決めておく）</span></div>
+    <div class="info-row"><span class="info-key">目標</span><span class="info-val">NASDAQ 100組み入れ期待の長期保有</span></div>
+    <div class="info-row"><span class="info-key">注意</span><span class="info-val">全財産の1〜2%以内の投資が目安</span></div>
+  </div>
+</div>
+
+<!-- ===== SETTINGS ===== -->
+<div class="settings-card">
+  <div class="info-title" style="margin-bottom:6px;">⚙️ 設定 ── ティッカー・IPO基準価格の変更</div>
+  <div class="settings-note">ティッカー記号が違った場合や、実際の初値が判明した際に修正してください。</div>
+  <div class="settings-row">
+    <label>ティッカー</label>
+    <input type="text" id="inputTicker" placeholder="CBRS" style="width:70px;">
+    <label>IPO基準価格($)</label>
+    <input type="number" id="inputIpoPrice" placeholder="130">
+    <button class="save-btn" onclick="saveSettings()">保存して更新</button>
+    <span class="save-msg" id="saveMsg"></span>
+  </div>
+</div>
+
+<footer>
+  <a href="index.html" class="back-link">← NASDAQダッシュボードに戻る</a><br><br>
+  データ取得: Yahoo Finance（5分ごとに自動更新）<br>
+  ※ 投資は自己責任です。このページは判断の参考情報であり、購入を推奨するものではありません。
+</footer>
+
+<script>
+  // ===== CONFIG =====
+  let TICKER    = localStorage.getItem('cbrsTicker')   || 'CBRS';
+  let IPO_PRICE = parseFloat(localStorage.getItem('cbrsIpoPrice') || '130');
+  const IPO_DATE = new Date('2026-05-13');
+
+  document.getElementById('inputTicker').value   = TICKER;
+  document.getElementById('inputIpoPrice').value = IPO_PRICE;
+  document.getElementById('ipoPriceRef').textContent = IPO_PRICE;
+
+  const PROXY = 'https://corsproxy.io/?';
+  let priceChart = null;
+
+  function fmt(n)  { return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function fmtPct(n){ return (n >= 0 ? '+' : '') + n.toFixed(2) + '%'; }
+
+  function daysSinceIPO() {
+    const now = new Date();
+    const diff = Math.floor((now - IPO_DATE) / (1000 * 60 * 60 * 24));
+    return Math.max(0, diff);
+  }
+
+  // ===== DECISION LOGIC =====
+  function updateDecision(price, daysListed) {
+    const banner = document.getElementById('decisionBanner');
+    const emoji  = document.getElementById('decisionEmoji');
+    const label  = document.getElementById('decisionLabel');
+    const reason = document.getElementById('decisionReason');
+
+    const pctFromIPO = ((price - IPO_PRICE) / IPO_PRICE) * 100;
+    const tooSoon    = daysListed < 14;
+    const tooHigh    = pctFromIPO > 20;
+
+    banner.className = '';
+
+    if (tooSoon && tooHigh) {
+      banner.classList.add('decision-red');
+      emoji.textContent = '🛑';
+      label.textContent = '今は買わない';
+      label.style.color = '#ef4444';
+      reason.textContent = `上場からまだ ${daysListed} 日しか経っていません（2週間待ちましょう）。さらにIPO価格から ${fmtPct(pctFromIPO)} 上昇中で割高です。焦らず待つのが正解。`;
+    } else if (tooSoon) {
+      banner.classList.add('decision-yellow');
+      emoji.textContent = '👀';
+      label.textContent = 'まだ様子見';
+      label.style.color = '#f59e0b';
+      reason.textContent = `上場からまだ ${daysListed} 日です。2週間（14日）経つまでは観察するだけ。株価はIPO基準から ${fmtPct(pctFromIPO)} の水準です。`;
+    } else if (tooHigh) {
+      banner.classList.add('decision-red');
+      emoji.textContent = '⚠️';
+      label.textContent = '高値なので待つ';
+      label.style.color = '#ef4444';
+      reason.textContent = `2週間は経ちましたが、株価がIPO基準から ${fmtPct(pctFromIPO)} 上昇しています。+20%超は割高ゾーン。もう少し落ち着くのを待ちましょう。`;
+    } else {
+      banner.classList.add('decision-green');
+      emoji.textContent = '🟢';
+      label.textContent = '購入を検討できる時期';
+      label.style.color = '#22c55e';
+      reason.textContent = `上場から ${daysListed} 日経過し、株価もIPO基準から ${fmtPct(pctFromIPO)} と落ち着いています。下のチェックリスト④（証券会社で買えるか）も確認したうえで判断を。`;
+    }
+  }
+
+  // ===== CHECKLIST =====
+  function updateChecklist(price, daysListed) {
+    const pctFromIPO = ((price - IPO_PRICE) / IPO_PRICE) * 100;
+    const ok = '✅'; const ng = '🔴'; const wait = '⏳';
+
+    // Check 1: 2週間以上
+    if (daysListed >= 14) {
+      document.getElementById('chk1Icon').textContent = ok;
+      document.getElementById('chk1Status').className = 'check-status status-ok';
+      document.getElementById('chk1Status').textContent = `✅ OK ── 上場から ${daysListed} 日経過しています`;
+    } else {
+      document.getElementById('chk1Icon').textContent = wait;
+      document.getElementById('chk1Status').className = 'check-status status-ng';
+      document.getElementById('chk1Status').textContent = `⏳ あと ${14 - daysListed} 日待ちましょう（現在 ${daysListed} 日目）`;
+    }
+
+    // Check 2: +20%以内
+    if (pctFromIPO <= 20) {
+      document.getElementById('chk2Icon').textContent = ok;
+      document.getElementById('chk2Status').className = 'check-status status-ok';
+      document.getElementById('chk2Status').textContent = `✅ OK ── IPO基準から ${fmtPct(pctFromIPO)}（+20%以内）`;
+    } else {
+      document.getElementById('chk2Icon').textContent = ng;
+      document.getElementById('chk2Status').className = 'check-status status-ng';
+      document.getElementById('chk2Status').textContent = `🔴 NG ── IPO基準から ${fmtPct(pctFromIPO)} 上昇中（+20%超は割高）`;
+    }
+  }
+
+  // ===== TIMELINE =====
+  function updateTimeline(daysListed) {
+    const t2 = document.getElementById('tl2dot');
+    const t3 = document.getElementById('tl3dot');
+    const t4 = document.getElementById('tl4dot');
+
+    if (daysListed >= 14) {
+      t2.className = 'tl-dot tl-dot-done'; t2.textContent = '✓';
+      t3.className = 'tl-dot tl-dot-now';  t3.textContent = '▶';
+    }
+  }
+
+  // ===== CHART =====
+  function drawChart(timestamps, closes) {
+    const labels = timestamps.map(ts => {
+      const d = new Date(ts * 1000);
+      return `${d.getMonth()+1}/${d.getDate()}`;
+    });
+    if (priceChart) priceChart.destroy();
+    const ctx  = document.getElementById('priceChart').getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 0, 200);
+    grad.addColorStop(0, 'rgba(139,92,246,0.4)');
+    grad.addColorStop(1, 'rgba(139,92,246,0.0)');
+
+    priceChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Cerebras株価',
+            data: closes,
+            borderColor: '#a78bfa',
+            backgroundColor: grad,
+            borderWidth: 2,
+            pointRadius: 0,
+            fill: true,
+            tension: 0.3,
+            spanGaps: true,
+          },
+          {
+            label: `IPO基準価格 $${IPO_PRICE}`,
+            data: Array(labels.length).fill(IPO_PRICE),
+            borderColor: '#f59e0b',
+            borderWidth: 1.5,
+            borderDash: [5, 5],
+            pointRadius: 0,
+            fill: false,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: '#94a3b8', font: { size: 11 } } },
+          tooltip: { callbacks: { label: c => `${c.dataset.label}: $${fmt(c.raw)}` } }
+        },
+        scales: {
+          x: { ticks: { color: '#94a3b8', font: { size: 10 }, maxTicksLimit: 8 }, grid: { color: '#2a2d3e' } },
+          y: { ticks: { color: '#94a3b8', font: { size: 10 }, callback: v => `$${fmt(v)}` }, grid: { color: '#2a2d3e' } }
+        }
+      }
+    });
+  }
+
+  // ===== FETCH =====
+  async function fetchPrice() {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(TICKER)}?interval=1d&range=1mo`;
+    try {
+      const res  = await fetch(PROXY + encodeURIComponent(url));
+      const json = await res.json();
+      const data = json.chart.result[0];
+      const meta = data.meta;
+
+      const price = meta.regularMarketPrice;
+      const prev  = meta.chartPreviousClose || meta.previousClose;
+      const chg   = price - prev;
+      const pct   = (chg / prev) * 100;
+      const ipoChg = ((price - IPO_PRICE) / IPO_PRICE) * 100;
+      const days  = daysSinceIPO();
+
+      // metrics
+      document.getElementById('currentPrice').textContent = `$${fmt(price)}`;
+      const ipoEl = document.getElementById('ipoChange');
+      ipoEl.textContent = fmtPct(ipoChg);
+      ipoEl.className = 'metric-value ' + (ipoChg > 20 ? 'warn' : ipoChg > 0 ? 'up' : 'down');
+      document.getElementById('daysListed').textContent = days;
+      const dcEl = document.getElementById('dayChange');
+      dcEl.textContent = (chg >= 0 ? '+' : '') + `$${fmt(chg)}`;
+      dcEl.className = 'metric-value ' + (chg >= 0 ? 'up' : 'down');
+      document.getElementById('dayChangePct').textContent = fmtPct(pct);
+      document.getElementById('dayChangePct').className = 'metric-sub ' + (pct >= 0 ? 'up' : 'down');
+
+      updateDecision(price, days);
+      updateChecklist(price, days);
+      updateTimeline(days);
+
+      if (data.timestamp && data.indicators?.quote?.[0]?.close) {
+        drawChart(data.timestamp, data.indicators.quote[0].close);
+      }
+    } catch (e) {
+      console.error('Fetch error:', e);
+      document.getElementById('currentPrice').innerHTML = '<span class="neutral">取得失敗</span>';
+      document.getElementById('decisionBanner').className = 'decision-gray';
+      document.getElementById('decisionEmoji').textContent = '❓';
+      document.getElementById('decisionLabel').textContent = 'データ取得できませんでした';
+      document.getElementById('decisionLabel').style.color = '#94a3b8';
+      document.getElementById('decisionReason').textContent = `ティッカー「${TICKER}」が正しいか確認してください。上場直後は取得できない場合があります。`;
+    }
+  }
+
+  // ===== SETTINGS =====
+  function saveSettings() {
+    const t = document.getElementById('inputTicker').value.trim().toUpperCase();
+    const p = parseFloat(document.getElementById('inputIpoPrice').value);
+    if (!t || !p || p <= 0) return;
+    TICKER = t; IPO_PRICE = p;
+    localStorage.setItem('cbrsTicker', t);
+    localStorage.setItem('cbrsIpoPrice', p);
+    document.getElementById('ipoPriceRef').textContent = p;
+    const msg = document.getElementById('saveMsg');
+    msg.textContent = '保存しました ✓';
+    setTimeout(() => msg.textContent = '', 2500);
+    init();
+  }
+
+  // ===== MAIN =====
+  async function init() {
+    document.getElementById('lastUpdated').textContent = '更新中...';
+    await fetchPrice();
+    const now = new Date();
+    document.getElementById('lastUpdated').textContent =
+      `更新: ${now.toLocaleDateString('ja-JP')} ${now.toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'})}`;
+  }
+
+  init();
+  setInterval(init, 5 * 60 * 1000);
+</script>
+</body>
+</html>
