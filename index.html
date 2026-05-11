@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NASDAQ 投資ダッシュボード</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --card: #1a1d2e;
+      --border: #2a2d3e;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --green: #22c55e;
+      --red: #ef4444;
+      --blue: #3b82f6;
+      --yellow: #f59e0b;
+      --purple: #a855f7;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      padding: 16px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    h1 { font-size: 1.3rem; font-weight: 700; }
+    .subtitle { color: var(--muted); font-size: 0.78rem; margin-top: 3px; }
+    .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+    .refresh-btn {
+      background: var(--blue);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.83rem;
+    }
+    .refresh-btn:hover { opacity: 0.85; }
+    .last-updated { color: var(--muted); font-size: 0.72rem; }
+
+    /* PnL summary */
+    .pnl-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 14px;
+    }
+    .section-label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 14px;
+    }
+    .pnl-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    .pnl-item .label { font-size: 0.72rem; color: var(--muted); margin-bottom: 5px; }
+    .pnl-item .value { font-size: 1.45rem; font-weight: 700; }
+    .pnl-item .sub { font-size: 0.75rem; color: var(--muted); margin-top: 3px; }
+
+    /* 3-col metrics */
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+    .card-title { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+    .metric-value { font-size: 1.4rem; font-weight: 700; margin-bottom: 3px; }
+    .metric-change { font-size: 0.82rem; }
+    .metric-sub { font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
+
+    .up   { color: var(--green); }
+    .down { color: var(--red); }
+    .neutral { color: var(--muted); }
+
+    /* Chart */
+    .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+    .chart-wrapper { position: relative; height: 210px; }
+
+    /* IPO status */
+    .ipo-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .ipo-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+    }
+    .ipo-company { font-size: 0.88rem; font-weight: 600; margin-bottom: 7px; }
+    .ipo-status {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      margin-bottom: 7px;
+    }
+    .status-hot    { background: #2a1a1a; color: #f87171; }
+    .status-watch  { background: #1a2a3a; color: #60a5fa; }
+    .status-long   { background: #1a2a1a; color: #4ade80; }
+    .ipo-note { font-size: 0.7rem; color: var(--muted); line-height: 1.5; }
+
+    /* News */
+    .news-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+    .news-item { border-bottom: 1px solid var(--border); padding: 11px 0; }
+    .news-item:first-child { padding-top: 0; }
+    .news-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .news-tag {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 0.68rem;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    .tag-spacex   { background: #1a3a5c; color: #60a5fa; }
+    .tag-openai   { background: #1a3a2a; color: #4ade80; }
+    .tag-anthropic{ background: #3a1a3a; color: #c084fc; }
+    .news-title { font-size: 0.83rem; line-height: 1.45; margin-bottom: 3px; }
+    .news-title a { color: var(--text); text-decoration: none; }
+    .news-title a:hover { color: var(--blue); }
+    .news-meta { font-size: 0.7rem; color: var(--muted); }
+
+    .loading { color: var(--muted); font-size: 0.82rem; text-align: center; padding: 20px; }
+    .error-msg { color: var(--red); font-size: 0.78rem; text-align: center; padding: 10px; }
+
+    /* Settings */
+    .settings-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+    .settings-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 10px; }
+    .settings-row label { font-size: 0.78rem; color: var(--muted); }
+    .settings-row input {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 0.83rem;
+      width: 100px;
+    }
+    .save-btn {
+      background: #1e3a5f;
+      color: #60a5fa;
+      border: 1px solid #2a4a7f;
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.78rem;
+    }
+    .save-btn:hover { background: #2a4a7f; }
+    .save-msg { font-size: 0.75rem; color: var(--green); }
+
+    footer { text-align: center; color: var(--muted); font-size: 0.68rem; padding: 12px 0 20px; line-height: 1.8; }
+
+    @media (max-width: 620px) {
+      .grid-3  { grid-template-columns: 1fr 1fr; }
+      .ipo-grid{ grid-template-columns: 1fr; }
+      .pnl-grid{ grid-template-columns: 1fr; gap: 12px; }
+    }
+    @media (max-width: 400px) {
+      body { padding: 10px; }
+      .grid-3 { grid-template-columns: 1fr; }
+      h1 { font-size: 1.1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>📈 NASDAQ 投資ダッシュボード</h1>
+    <div class="subtitle">NISA成長枠 | (2840) iFナス100H無 × 37株 | 購入日 2026/05/11</div>
+  </div>
+  <div class="header-right">
+    <button class="refresh-btn" onclick="fetchAll()">↻ 手動更新</button>
+    <div class="last-updated" id="lastUpdated">—</div>
+  </div>
+</header>
+
+<!-- 損益サマリー -->
+<div class="pnl-card">
+  <div class="section-label">損益サマリー（NISA・非課税）</div>
+  <div class="pnl-grid">
+    <div class="pnl-item">
+      <div class="label">購入総額</div>
+      <div class="value" id="purchaseTotalDisplay">¥114,589</div>
+      <div class="sub" id="purchaseDetail">@3,097円 × 37株</div>
+    </div>
+    <div class="pnl-item">
+      <div class="label">現在評価額</div>
+      <div class="value" id="currentValue"><span class="neutral">—</span></div>
+      <div class="sub" id="currentPriceSub">取得中...</div>
+    </div>
+    <div class="pnl-item">
+      <div class="label">損益</div>
+      <div class="value" id="pnlValue"><span class="neutral">—</span></div>
+      <div class="sub" id="pnlPct">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- マーケット指標 -->
+<div class="grid-3">
+  <div class="card">
+    <div class="card-title">(2840) 現在値</div>
+    <div class="metric-value" id="etfPrice">—</div>
+    <div class="metric-change" id="etfChange">取得中...</div>
+    <div class="metric-sub">iFナス100H無（東証）</div>
+  </div>
+  <div class="card">
+    <div class="card-title">NASDAQ 100</div>
+    <div class="metric-value" id="ndxPrice">—</div>
+    <div class="metric-change" id="ndxChange">取得中...</div>
+    <div class="metric-sub">^NDX（米国市場）</div>
+  </div>
+  <div class="card">
+    <div class="card-title">USD / JPY 為替</div>
+    <div class="metric-value" id="usdjpy">—</div>
+    <div class="metric-change" id="usdjpyChange">取得中...</div>
+    <div class="metric-sub">円安↑ = あなたにはプラス</div>
+  </div>
+</div>
+
+<!-- ETFチャート -->
+<div class="chart-card">
+  <div class="card-title" style="margin-bottom:12px;">(2840) 30日間チャート ── 黄色点線が購入単価</div>
+  <div class="chart-wrapper">
+    <canvas id="etfChart"></canvas>
+  </div>
+</div>
+
+<!-- IPO Watch -->
+<div class="section-label" style="padding-left:4px; margin-bottom:8px;">IPO ウォッチ ── NASDAQへの組み入れを狙う3社</div>
+<div class="ipo-grid">
+  <div class="ipo-card">
+    <div class="ipo-company">🚀 SpaceX</div>
+    <span class="ipo-status status-hot">注目度 高</span>
+    <div class="ipo-note">Starlink部門のみIPO可能性。本体の上場は難しい見通し。動きがあればすぐNDX候補に</div>
+  </div>
+  <div class="ipo-card">
+    <div class="ipo-company">🤖 OpenAI</div>
+    <span class="ipo-status status-watch">2026〜27年説</span>
+    <div class="ipo-note">非営利→営利転換が進行中。3社の中でIPO最有力。実現すればNDX編入まで約1年</div>
+  </div>
+  <div class="ipo-card">
+    <div class="ipo-company">🧠 Anthropic</div>
+    <span class="ipo-status status-long">長期ウォッチ</span>
+    <div class="ipo-note">Amazon・Googleが大株主。早期IPOは考えにくいが、OpenAI上場後に追随する可能性</div>
+  </div>
+</div>
+
+<!-- ニュース -->
+<div class="news-card">
+  <div class="card-title" style="margin-bottom:12px;">IPO関連 最新ニュース（自動取得）</div>
+  <div id="newsContainer"><div class="loading">ニュース取得中...</div></div>
+</div>
+
+<!-- 購入単価の修正 -->
+<div class="settings-card">
+  <div class="card-title">設定 ── 購入単価の修正</div>
+  <div style="font-size:0.75rem; color:var(--muted); margin-top:6px;">
+    成行注文のため、実際の約定価格が3,097円と異なった場合はここで修正できます。
+  </div>
+  <div class="settings-row">
+    <label>購入単価（円）</label>
+    <input type="number" id="inputPrice" placeholder="3097">
+    <label>株数</label>
+    <input type="number" id="inputShares" placeholder="37">
+    <button class="save-btn" onclick="saveSettings()">保存して再計算</button>
+    <span class="save-msg" id="saveMsg"></span>
+  </div>
+</div>
+
+<footer>
+  データ取得: Yahoo Finance / Google News RSS（5分ごとに自動更新）<br>
+  ※ 東証の取引時間外は前日終値を表示 | NISAのため売却時も非課税
+</footer>
+
+<script>
+  // --- 設定（localStorage で永続化）---
+  let PURCHASE_PRICE = parseFloat(localStorage.getItem('purchasePrice') || '3097');
+  let SHARES         = parseInt(localStorage.getItem('shares') || '37');
+  let PURCHASE_TOTAL = PURCHASE_PRICE * SHARES;
+
+  document.getElementById('inputPrice').value  = PURCHASE_PRICE;
+  document.getElementById('inputShares').value = SHARES;
+
+  function saveSettings() {
+    const p = parseFloat(document.getElementById('inputPrice').value);
+    const s = parseInt(document.getElementById('inputShares').value);
+    if (!p || !s || p <= 0 || s <= 0) return;
+    PURCHASE_PRICE = p; SHARES = s; PURCHASE_TOTAL = p * s;
+    localStorage.setItem('purchasePrice', p);
+    localStorage.setItem('shares', s);
+    document.getElementById('purchaseTotalDisplay').textContent = '¥' + fmt(PURCHASE_TOTAL);
+    document.getElementById('purchaseDetail').textContent = `@${fmt(p)}円 × ${s}株`;
+    const msg = document.getElementById('saveMsg');
+    msg.textContent = '保存しました ✓';
+    setTimeout(() => msg.textContent = '', 2500);
+    fetchAll();
+  }
+
+  // --- ユーティリティ ---
+  const PROXY = 'https://corsproxy.io/?';
+  let etfChart = null;
+
+  function fmt(n)   { return Math.round(n).toLocaleString('ja-JP'); }
+  function fmtF(n)  { return n.toLocaleString('ja-JP', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+  function colorClass(v) { return v > 0 ? 'up' : v < 0 ? 'down' : 'neutral'; }
+  function sign(v)       { return v >= 0 ? '+' : ''; }
+
+  function setChange(elId, change, pct) {
+    const el = document.getElementById(elId);
+    if (change == null) { el.innerHTML = '<span class="neutral">—</span>'; return; }
+    const cls = colorClass(change);
+    el.innerHTML = `<span class="${cls}">${sign(change)}${fmtF(change)} (${sign(pct)}${fmtF(pct)}%)</span>`;
+  }
+
+  // --- Yahoo Finance ---
+  async function fetchYahoo(symbol) {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1mo`;
+    try {
+      const res = await fetch(PROXY + encodeURIComponent(url));
+      const json = await res.json();
+      return json.chart.result[0];
+    } catch (e) {
+      console.error('Yahoo error:', symbol, e);
+      return null;
+    }
+  }
+
+  async function fetchETF() {
+    const d = await fetchYahoo('2840.T');
+    if (!d) { document.getElementById('etfPrice').textContent = 'エラー'; return; }
+    const price = d.meta.regularMarketPrice;
+    const prev  = d.meta.chartPreviousClose || d.meta.previousClose;
+    const chg   = price - prev;
+    const pct   = (chg / prev) * 100;
+
+    document.getElementById('etfPrice').textContent = `¥${fmt(price)}`;
+    setChange('etfChange', chg, pct);
+
+    // 損益
+    const cv   = price * SHARES;
+    const pnl  = cv - PURCHASE_TOTAL;
+    const ppct = (pnl / PURCHASE_TOTAL) * 100;
+    const cls  = colorClass(pnl);
+
+    document.getElementById('currentValue').innerHTML    = `¥${fmt(cv)}`;
+    document.getElementById('currentPriceSub').textContent = `@${fmt(price)}円 × ${SHARES}株`;
+    document.getElementById('pnlValue').innerHTML        = `<span class="${cls}">${sign(pnl)}¥${fmt(pnl)}</span>`;
+    document.getElementById('pnlPct').innerHTML          = `<span class="${cls}">${sign(ppct)}${fmtF(ppct)}%</span>`;
+
+    // チャート
+    if (d.timestamp && d.indicators?.quote?.[0]?.close) {
+      drawChart(d.timestamp, d.indicators.quote[0].close);
+    }
+  }
+
+  async function fetchNDX() {
+    const d = await fetchYahoo('^NDX');
+    if (!d) { document.getElementById('ndxPrice').textContent = 'エラー'; return; }
+    const price = d.meta.regularMarketPrice;
+    const prev  = d.meta.chartPreviousClose || d.meta.previousClose;
+    const chg   = price - prev;
+    const pct   = (chg / prev) * 100;
+    document.getElementById('ndxPrice').textContent = fmt(price);
+    setChange('ndxChange', chg, pct);
+  }
+
+  async function fetchUSDJPY() {
+    const d = await fetchYahoo('USDJPY=X');
+    if (!d) { document.getElementById('usdjpy').textContent = 'エラー'; return; }
+    const price = d.meta.regularMarketPrice;
+    const prev  = d.meta.chartPreviousClose || d.meta.previousClose;
+    const chg   = price - prev;
+    const pct   = (chg / prev) * 100;
+    document.getElementById('usdjpy').textContent = fmtF(price);
+    setChange('usdjpyChange', chg, pct);
+  }
+
+  // --- Chart.js ---
+  function drawChart(timestamps, closes) {
+    const labels = timestamps.map(ts => {
+      const d = new Date(ts * 1000);
+      return `${d.getMonth()+1}/${d.getDate()}`;
+    });
+
+    if (etfChart) etfChart.destroy();
+    const ctx = document.getElementById('etfChart').getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 0, 210);
+    grad.addColorStop(0, 'rgba(59,130,246,0.35)');
+    grad.addColorStop(1, 'rgba(59,130,246,0.0)');
+
+    etfChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: '(2840)株価',
+            data: closes,
+            borderColor: '#3b82f6',
+            backgroundColor: grad,
+            borderWidth: 2,
+            pointRadius: 0,
+            fill: true,
+            tension: 0.3,
+            spanGaps: true,
+          },
+          {
+            label: `購入単価 ¥${fmt(PURCHASE_PRICE)}`,
+            data: Array(labels.length).fill(PURCHASE_PRICE),
+            borderColor: '#f59e0b',
+            borderWidth: 1.5,
+            borderDash: [5, 5],
+            pointRadius: 0,
+            fill: false,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: '#94a3b8', font: { size: 11 } } },
+          tooltip: {
+            callbacks: { label: c => `${c.dataset.label}: ¥${fmt(c.raw)}` }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: '#94a3b8', font: { size: 10 }, maxTicksLimit: 8 },
+            grid:  { color: '#2a2d3e' }
+          },
+          y: {
+            ticks: { color: '#94a3b8', font: { size: 10 }, callback: v => `¥${fmt(v)}` },
+            grid:  { color: '#2a2d3e' }
+          }
+        }
+      }
+    });
+  }
+
+  // --- Google News RSS ---
+  const NEWS_TARGETS = [
+    { q: 'SpaceX IPO NASDAQ',   tag: 'tag-spacex',    label: 'SpaceX'    },
+    { q: 'OpenAI IPO listing',  tag: 'tag-openai',    label: 'OpenAI'    },
+    { q: 'Anthropic IPO',       tag: 'tag-anthropic', label: 'Anthropic' },
+  ];
+
+  async function fetchNews() {
+    const container = document.getElementById('newsContainer');
+    const all = [];
+
+    for (const { q, tag, label } of NEWS_TARGETS) {
+      try {
+        const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en&gl=US&ceid=US:en`;
+        const res  = await fetch(PROXY + encodeURIComponent(rssUrl));
+        const text = await res.text();
+        const xml  = new DOMParser().parseFromString(text, 'text/xml');
+        const items = [...xml.querySelectorAll('item')].slice(0, 3);
+        items.forEach(item => {
+          const title = item.querySelector('title')?.textContent || '';
+          const link  = item.querySelector('link')?.nextSibling?.nodeValue?.trim()
+                     || item.querySelector('link')?.textContent || '#';
+          const pub   = item.querySelector('pubDate')?.textContent || '';
+          const date  = pub ? new Date(pub).toLocaleDateString('ja-JP') : '';
+          all.push({ title, link, date, tag, label });
+        });
+      } catch (e) { console.error('News error:', q, e); }
+    }
+
+    if (!all.length) {
+      container.innerHTML = '<div class="error-msg">ニュースを取得できませんでした（ネットワーク制限の可能性）</div>';
+      return;
+    }
+
+    container.innerHTML = all.map(n => `
+      <div class="news-item">
+        <div class="news-title">
+          <span class="news-tag ${n.tag}">${n.label}</span>
+          <a href="${n.link}" target="_blank" rel="noopener noreferrer">${n.title}</a>
+        </div>
+        <div class="news-meta">${n.date}</div>
+      </div>
+    `).join('');
+  }
+
+  // --- メイン ---
+  async function fetchAll() {
+    document.getElementById('lastUpdated').textContent = '更新中...';
+    await Promise.all([fetchETF(), fetchNDX(), fetchUSDJPY(), fetchNews()]);
+    const now = new Date();
+    document.getElementById('lastUpdated').textContent =
+      `更新: ${now.toLocaleDateString('ja-JP')} ${now.toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'})}`;
+  }
+
+  fetchAll();
+  setInterval(fetchAll, 5 * 60 * 1000); // 5分ごと自動更新
+</script>
+</body>
+</html>
