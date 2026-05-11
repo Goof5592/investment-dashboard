@@ -123,9 +123,12 @@
       font-size: 0.7rem;
       margin-bottom: 7px;
     }
-    .status-hot    { background: #2a1a1a; color: #f87171; }
-    .status-watch  { background: #1a2a3a; color: #60a5fa; }
-    .status-long   { background: #1a2a1a; color: #4ade80; }
+    .status-hot      { background: #2a1a1a; color: #f87171; }
+    .status-watch    { background: #1a2a3a; color: #60a5fa; }
+    .status-long     { background: #1a2a1a; color: #4ade80; }
+    .status-top      { background: #3a2a0a; color: #fbbf24; }
+    .status-imminent { background: #2a1a3a; color: #e879f9; }
+    .status-note     { background: #1e1e1e; color: #64748b; }
     .ipo-note { font-size: 0.7rem; color: var(--muted); line-height: 1.5; }
 
     /* News */
@@ -257,22 +260,37 @@
 </div>
 
 <!-- IPO Watch -->
-<div class="section-label" style="padding-left:4px; margin-bottom:8px;">IPO ウォッチ ── NASDAQへの組み入れを狙う3社</div>
+<div class="section-label" style="padding-left:4px; margin-bottom:8px;">IPO ウォッチ ── NASDAQ組み入れ候補を追う</div>
 <div class="ipo-grid">
   <div class="ipo-card">
-    <div class="ipo-company">🚀 SpaceX</div>
-    <span class="ipo-status status-hot">注目度 高</span>
-    <div class="ipo-note">Starlink部門のみIPO可能性。本体の上場は難しい見通し。動きがあればすぐNDX候補に</div>
+    <div class="ipo-company">🧠 Anthropic</div>
+    <span class="ipo-status status-top">⭐ 最有望</span>
+    <div class="ipo-note">上場予定：2026年10〜12月<br>時価総額 $1T 前後の見通し<br>実現すればNDX最大級の新規組み入れ</div>
   </div>
   <div class="ipo-card">
     <div class="ipo-company">🤖 OpenAI</div>
-    <span class="ipo-status status-watch">2026〜27年説</span>
-    <div class="ipo-note">非営利→営利転換が進行中。3社の中でIPO最有力。実現すればNDX編入まで約1年</div>
+    <span class="ipo-status status-watch">2026年10〜12月説</span>
+    <div class="ipo-note">非営利→営利転換が進行中<br>リスク要因多め（構造・規制）<br>上場後NDX編入まで約1年</div>
   </div>
   <div class="ipo-card">
-    <div class="ipo-company">🧠 Anthropic</div>
-    <span class="ipo-status status-long">長期ウォッチ</span>
-    <div class="ipo-note">Amazon・Googleが大株主。早期IPOは考えにくいが、OpenAI上場後に追随する可能性</div>
+    <div class="ipo-company">⚡ Cerebras</div>
+    <span class="ipo-status status-imminent">上場間近？</span>
+    <div class="ipo-note">AIチップ企業。直近で上場との情報あり<br>※正確な日程は要確認<br>上場すればNDX組み入れ候補</div>
+  </div>
+  <div class="ipo-card">
+    <div class="ipo-company">🚀 SpaceX</div>
+    <span class="ipo-status status-hot">資金調達中</span>
+    <div class="ipo-note">6月ロードショー予定（上場ではなく調達）<br>目標 $50〜75B<br>※xAIとは別会社</div>
+  </div>
+  <div class="ipo-card">
+    <div class="ipo-company">🔮 xAI</div>
+    <span class="ipo-status status-watch">ウォッチ中</span>
+    <div class="ipo-note">マスクのAI会社（Grok）<br>SpaceXとは別法人<br>IPO時期未定・動向を注視</div>
+  </div>
+  <div class="ipo-card">
+    <div class="ipo-company">🚕 GO（国内）</div>
+    <span class="ipo-status status-note">東証・無関係</span>
+    <div class="ipo-note">2026年内・東証上場予定<br>500〜800億円規模<br>⚠ NASDAQではないため(2840)に影響なし</div>
   </div>
 </div>
 
