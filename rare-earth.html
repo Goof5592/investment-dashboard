@@ -144,6 +144,23 @@
     .stock-note { font-size:0.7rem; color:var(--muted); line-height:1.5; }
     .stock-chart-wrap { margin: 10px 0 6px; height: 80px; }
 
+    /* ── Fundamentals ── */
+    .fund-section { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+    .fund-title { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+    .fund-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; }
+    .fund-item { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; }
+    .fund-label { font-size: 0.68rem; color: var(--muted); }
+    .fund-val { font-size: 0.72rem; font-weight: 600; }
+    .fv-good { color: #22c55e; }
+    .fv-ok   { color: #f59e0b; }
+    .fv-warn { color: #ef4444; }
+    .fv-na   { color: #4a5568; }
+    .fund-outlook { margin-top: 5px; font-size: 0.7rem; display: flex; justify-content: space-between; align-items: center; }
+    .out-up   { color: #22c55e; font-weight: 600; }
+    .out-flat { color: #f59e0b; font-weight: 600; }
+    .out-down { color: #ef4444; font-weight: 600; }
+    .fund-note { font-size: 0.62rem; color: #4a5568; margin-top: 4px; }
+
     .up      { color:var(--green); }
     .down    { color:var(--red); }
     .neutral { color:var(--muted); }
@@ -313,6 +330,20 @@
 </footer>
 
 <script>
+  // 手動更新データ（最終更新: 2026年5月・2025年度決算ベース）
+  const FUND_MANUAL = {
+    '6269.T': { equity: 31, fiscalMonth:  12, outlook: '増収増益予想', outCls: 'out-up'   },
+    '6330.T': { equity: 34, fiscalMonth:   3, outlook: '増収見込み',   outCls: 'out-up'   },
+    '2768.T': { equity: 22, fiscalMonth:   3, outlook: '横ばい予想',   outCls: 'out-flat' },
+    '8053.T': { equity: 29, fiscalMonth:   3, outlook: '増収見込み',   outCls: 'out-up'   },
+    '5016.T': { equity: 47, fiscalMonth:   3, outlook: '増収増益予想', outCls: 'out-up'   },
+    '4063.T': { equity: 79, fiscalMonth:   3, outlook: '増収増益予想', outCls: 'out-up'   },
+    '6501.T': { equity: 36, fiscalMonth:   3, outlook: '増収増益予想', outCls: 'out-up'   },
+    '6367.T': { equity: 51, fiscalMonth:   3, outlook: '増収増益予想', outCls: 'out-up'   },
+    '5714.T': { equity: 54, fiscalMonth:   3, outlook: '増収見込み',   outCls: 'out-up'   },
+    '5715.T': { equity: 43, fiscalMonth:   3, outlook: '横ばい予想',   outCls: 'out-flat' },
+  };
+
   const STOCK_META = {
     '6269.T': { name:'三井海洋開発',       ticker:'6269', tier:'high',   note:'揚泥技術の当事者。商業化決定で最大の恩恵。5〜10年の長期勝負' },
     '6330.T': { name:'東洋エンジニアリング', ticker:'6330', tier:'high',   note:'海底資源処理プラントの設計。案件獲得ニュースに注目' },
@@ -337,6 +368,61 @@
   function fmtF(n,d=2){ return n.toLocaleString('ja-JP',{minimumFractionDigits:d,maximumFractionDigits:d}); }
   function sign(v)   { return v >= 0 ? '+' : ''; }
   function cls(v)    { return v > 0 ? 'up' : v < 0 ? 'down' : 'neutral'; }
+
+  function fundColor(key, val) {
+    if (val == null || val === '' || isNaN(val)) return 'fv-na';
+    switch (key) {
+      case 'per':       return val < 15 ? 'fv-good' : val < 25 ? 'fv-ok' : 'fv-warn';
+      case 'pbr':       return val < 1  ? 'fv-good' : val < 3  ? 'fv-ok' : 'fv-warn';
+      case 'roe':       return val > 0.15 ? 'fv-good' : val > 0.08 ? 'fv-ok' : 'fv-warn';
+      case 'opMargin':  return val > 0.12 ? 'fv-good' : val > 0.05 ? 'fv-ok' : 'fv-warn';
+      case 'revGrowth': return val > 0.05 ? 'fv-good' : val >= 0   ? 'fv-ok' : 'fv-warn';
+      case 'divYield':  return val > 0.03 ? 'fv-good' : val > 0.01 ? 'fv-ok' : 'fv-na';
+      case 'equity':    return val > 50   ? 'fv-good' : val > 30   ? 'fv-ok' : 'fv-warn';
+      default: return 'fv-ok';
+    }
+  }
+
+  function fmtFund(key, val) {
+    if (val == null || isNaN(val)) return '—';
+    switch (key) {
+      case 'per':       return `${val.toFixed(1)}倍`;
+      case 'pbr':       return `${val.toFixed(2)}倍`;
+      case 'roe':       return `${(val * 100).toFixed(1)}%`;
+      case 'opMargin':  return `${(val * 100).toFixed(1)}%`;
+      case 'revGrowth': return `${val >= 0 ? '+' : ''}${(val * 100).toFixed(1)}%`;
+      case 'divYield':  return `${(val * 100).toFixed(2)}%`;
+      case 'equity':    return `${val}%`;
+      default: return String(val);
+    }
+  }
+
+  function buildFundSection(symbol, fund) {
+    const m = FUND_MANUAL[symbol] || {};
+    const f = fund || {};
+    const rows = [
+      ['PER',      fundColor('per',       f.per),       fmtFund('per',       f.per)],
+      ['PBR',      fundColor('pbr',       f.pbr),       fmtFund('pbr',       f.pbr)],
+      ['ROE',      fundColor('roe',       f.roe),       fmtFund('roe',       f.roe)],
+      ['営業利益率', fundColor('opMargin',  f.opMargin),  fmtFund('opMargin',  f.opMargin)],
+      ['売上前期比', fundColor('revGrowth', f.revGrowth), fmtFund('revGrowth', f.revGrowth)],
+      ['配当利回り', fundColor('divYield',  f.divYield),  fmtFund('divYield',  f.divYield)],
+      ['自己資本比率', fundColor('equity',  m.equity),    fmtFund('equity',    m.equity)],
+      ['決算月',    'fv-ok',                              m.fiscalMonth ? `${m.fiscalMonth}月期` : '—'],
+    ];
+    const gridHtml = rows.map(([label, cls, val]) =>
+      `<div class="fund-item"><span class="fund-label">${label}</span><span class="fund-val ${cls}">${val}</span></div>`
+    ).join('');
+    return `<div class="fund-section">
+      <div class="fund-title">ファンダメンタルズ</div>
+      <div class="fund-grid">${gridHtml}</div>
+      <div class="fund-outlook">
+        <span class="fund-label">次期予想</span>
+        <span class="${m.outCls || 'fv-ok'}">${m.outlook || '—'}</span>
+      </div>
+      <div class="fund-note">※ 自己資本比率・予想は手動更新（2026年5月）｜他はYahoo Finance自動取得</div>
+    </div>`;
+  }
 
   function calc30dPerf(d) {
     if (!d || !d.closes || d.closes.length < 2) return null;
@@ -381,6 +467,7 @@
       <div class="stock-chart-wrap"><canvas id="chart-${symbol.replace('.','_')}"></canvas></div>
       <span class="signal ${sigCls}">${signal.label}</span>
       <div class="stock-note">${meta.note}</div>
+      ${buildFundSection(symbol, d.fund)}
     </div>`;
   }
 
