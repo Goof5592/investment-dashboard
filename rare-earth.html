@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>レアアース投資ダッシュボード</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --bg: #0f1117;
@@ -140,6 +141,7 @@
     .signal-load { background:#1e1e2a; color:#94a3b8; border:1px solid var(--border); }
 
     .stock-note { font-size:0.7rem; color:var(--muted); line-height:1.5; }
+    .stock-chart-wrap { margin: 10px 0 6px; height: 80px; }
 
     .up      { color:var(--green); }
     .down    { color:var(--red); }
@@ -370,7 +372,8 @@
       </div>
       <div class="stock-price">¥${fmt(d.price)}</div>
       <div class="stock-change ${cls(chg)}">${sign(chg)}${fmtF(chg)} (${sign(pct)}${fmtF(pct)}%)</div>
-      ${perf30 !== null ? `<div class="stock-perf">30日騰落率: <span class="${cls(perf30)}">${sign(perf30)}${fmtF(perf30)}%</span></div>` : ''}
+      ${perf30 !== null ? `<div class="stock-perf">1年騰落率: <span class="${cls(perf30)}">${sign(perf30)}${fmtF(perf30)}%</span></div>` : ''}
+      <div class="stock-chart-wrap"><canvas id="chart-${symbol.replace('.','_')}"></canvas></div>
       <span class="signal ${sigCls}">${signal.label}</span>
       <div class="stock-note">${meta.note}</div>
     </div>`;
@@ -395,12 +398,59 @@
     }).join('');
   }
 
+  const _charts = {};
+
+  function drawCharts(stocks) {
+    Object.entries(stocks).forEach(([symbol, d]) => {
+      if (!d || !d.closes || d.closes.length < 2) return;
+      const id = 'chart-' + symbol.replace('.', '_');
+      const canvas = document.getElementById(id);
+      if (!canvas) return;
+      if (_charts[id]) { _charts[id].destroy(); }
+      const first = d.closes[0];
+      const last  = d.closes[d.closes.length - 1];
+      const color = last >= first ? '#22c55e' : '#ef4444';
+      const labels = d.timestamps.map(ts => {
+        const dt = new Date(ts * 1000);
+        return `${dt.getMonth()+1}/${dt.getDate()}`;
+      });
+      _charts[id] = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            data: d.closes,
+            borderColor: color,
+            borderWidth: 1.5,
+            pointRadius: 0,
+            fill: true,
+            backgroundColor: color + '18',
+            tension: 0.3,
+          }]
+        },
+        options: {
+          animation: false,
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: {
+            callbacks: { label: ctx => `¥${Math.round(ctx.raw).toLocaleString('ja-JP')}` }
+          }},
+          scales: {
+            x: { display: false },
+            y: { display: false, grace: '5%' }
+          }
+        }
+      });
+    });
+  }
+
   function renderStocks(stocks) {
     ['high','medium','low'].forEach(tier => {
       const symbols = Object.keys(STOCK_META).filter(s => STOCK_META[s].tier === tier);
       const html    = symbols.map(s => buildStockCard(s, stocks[s])).join('');
       document.getElementById(`grid-${tier}`).innerHTML = html;
     });
+    drawCharts(stocks);
   }
 
   async function init() {
