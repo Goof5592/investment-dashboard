@@ -376,6 +376,7 @@
       if (d.etf)    applyETF(d.etf);
       if (d.ndx)    applyNDX(d.ndx);
       if (d.usdjpy) applyUSDJPY(d.usdjpy);
+      if (d.news)   renderNews(d.news);
 
       // データ取得時刻を表示
       const dataTime = new Date(d.updated * 1000);
@@ -524,49 +525,30 @@
     });
   }
 
-  // --- Google News RSS ---
-  const NEWS_TARGETS = [
-    { q: 'SpaceX IPO NASDAQ',   tag: 'tag-spacex',    label: 'SpaceX'    },
-    { q: 'OpenAI IPO listing',  tag: 'tag-openai',    label: 'OpenAI'    },
-    { q: 'Anthropic IPO',       tag: 'tag-anthropic', label: 'Anthropic' },
-  ];
+  // --- ニュース表示（data.json から） ---
+  const TAG_INFO = {
+    spacex:    { label: 'SpaceX',    cls: 'tag-spacex'    },
+    openai:    { label: 'OpenAI',    cls: 'tag-openai'    },
+    anthropic: { label: 'Anthropic', cls: 'tag-anthropic' },
+  };
 
-  async function fetchNews() {
+  function renderNews(news) {
     const container = document.getElementById('newsContainer');
-    const all = [];
-
-    for (const { q, tag, label } of NEWS_TARGETS) {
-      try {
-        const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en&gl=US&ceid=US:en`;
-        const res  = await fetch(PROXIES[0](rssUrl), { signal: AbortSignal.timeout(8000) });
-        const text = await res.text();
-        const xml  = new DOMParser().parseFromString(text, 'text/xml');
-        const items = [...xml.querySelectorAll('item')].slice(0, 3);
-        items.forEach(item => {
-          const title = item.querySelector('title')?.textContent || '';
-          const link  = item.querySelector('link')?.nextSibling?.nodeValue?.trim()
-                     || item.querySelector('link')?.textContent || '#';
-          const pub   = item.querySelector('pubDate')?.textContent || '';
-          const date  = pub ? new Date(pub).toLocaleDateString('ja-JP') : '';
-          all.push({ title, link, date, tag, label });
-        });
-      } catch (e) { console.error('News error:', q, e); }
-    }
-
-    if (!all.length) {
-      container.innerHTML = '<div class="error-msg">ニュースを取得できませんでした（ネットワーク制限の可能性）</div>';
+    if (!news || !news.length) {
+      container.innerHTML = '<div class="error-msg">ニュースデータがありません</div>';
       return;
     }
-
-    container.innerHTML = all.map(n => `
-      <div class="news-item">
+    container.innerHTML = news.map(n => {
+      const info = TAG_INFO[n.tag] || { label: n.tag, cls: 'tag-spacex' };
+      const date = n.pub ? new Date(n.pub).toLocaleDateString('ja-JP') : '';
+      return `<div class="news-item">
         <div class="news-title">
-          <span class="news-tag ${n.tag}">${n.label}</span>
+          <span class="news-tag ${info.cls}">${info.label}</span>
           <a href="${n.link}" target="_blank" rel="noopener noreferrer">${n.title}</a>
         </div>
-        <div class="news-meta">${n.date}</div>
-      </div>
-    `).join('');
+        <div class="news-meta">${date}</div>
+      </div>`;
+    }).join('');
   }
 
   // --- メイン ---
@@ -584,7 +566,6 @@
         `更新: ${now.toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'})}`;
     }
 
-    await fetchNews();
   }
 
   fetchAll();

@@ -67,11 +67,38 @@ jobs:
                   return []
 
           # ── NASDAQ ダッシュボード用 ──────────────────────
+          ipo_news_queries = [
+              ('SpaceX IPO NASDAQ',  'spacex'),
+              ('OpenAI IPO listing', 'openai'),
+              ('Anthropic IPO',      'anthropic'),
+          ]
+          ipo_news = []
+          ipo_seen = set()
+          for query, tag in ipo_news_queries:
+              url = f"https://news.google.com/rss/search?q={urllib.parse.quote(query)}&hl=en&gl=US&ceid=US:en"
+              req = urllib.request.Request(url, headers=HEADERS)
+              try:
+                  with urllib.request.urlopen(req, timeout=10) as resp:
+                      root = ET.fromstring(resp.read())
+                      for item in root.findall('.//item')[:3]:
+                          title = item.findtext('title', '')
+                          if title not in ipo_seen:
+                              ipo_seen.add(title)
+                              ipo_news.append({
+                                  'title': title,
+                                  'link':  item.findtext('link', '#'),
+                                  'pub':   item.findtext('pubDate', ''),
+                                  'tag':   tag,
+                              })
+              except Exception as e:
+                  print(f"IPO news error '{query}': {e}")
+
           nasdaq = {
               'updated': int(time.time()),
               'etf':    fetch_yahoo('2840.T'),
               'ndx':    fetch_yahoo('^NDX'),
               'usdjpy': fetch_yahoo('USDJPY=X'),
+              'news':   ipo_news,
           }
           with open('data.json', 'w') as f:
               json.dump(nasdaq, f)
