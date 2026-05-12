@@ -83,6 +83,7 @@
     .news-title-text a { color:var(--text); text-decoration:none; }
     .news-title-text a:hover { color:var(--blue); }
     .news-date { font-size:0.7rem; color:var(--muted); }
+    .news-new { display:inline-block; background:#052e16; color:#22c55e; border:1px solid #166534; font-size:0.65rem; font-weight:700; padding:1px 6px; border-radius:4px; margin-left:6px; vertical-align:middle; }
     .news-empty { color:var(--muted); font-size:0.82rem; text-align:center; padding:16px; }
 
     /* ── Tier sections ── */
@@ -389,13 +390,16 @@
       container.innerHTML = '<div class="news-empty">ニュースを取得できませんでした</div>';
       return;
     }
+    const now = Date.now();
     container.innerHTML = news.map(n => {
       const tag = TAG_LABEL[n.tag] || { label:'ニュース', cls:'tag-policy' };
-      const date = n.pub ? new Date(n.pub).toLocaleDateString('ja-JP') : '';
+      const pubTs = n.pub_ts ? n.pub_ts * 1000 : (n.pub ? new Date(n.pub).getTime() : 0);
+      const date = pubTs ? new Date(pubTs).toLocaleDateString('ja-JP') : '';
+      const isNew = pubTs && (now - pubTs) < 7 * 24 * 60 * 60 * 1000;
       return `<div class="news-item">
         <span class="news-tag ${tag.cls}">${tag.label}</span>
         <div class="news-body">
-          <div class="news-title-text"><a href="${n.link}" target="_blank" rel="noopener">${n.title}</a></div>
+          <div class="news-title-text"><a href="${n.link}" target="_blank" rel="noopener">${n.title}</a>${isNew ? '<span class="news-new">NEW</span>' : ''}</div>
           <div class="news-date">${date}</div>
         </div>
       </div>`;

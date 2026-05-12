@@ -101,6 +101,9 @@ jobs:
               print(f"{name}: {d['price'] if d else 'error'}")
 
           # ニュース収集（政策・公式発表寄り）
+          from email.utils import parsedate_to_datetime
+          import datetime
+
           news_queries = [
               ('経済産業省 レアアース',     'meti'),
               ('JOGMEC レアアース',        'jogmec'),
@@ -109,14 +112,24 @@ jobs:
           ]
           all_news = []
           seen = set()
+          cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=60)
           for query, tag in news_queries:
-              for item in fetch_news(query, 4):
+              for item in fetch_news(query, 6):
                   if item['title'] not in seen:
+                      # 日付パース・フィルタ（60日以内のみ）
+                      try:
+                          pub_dt = parsedate_to_datetime(item['pub'])
+                          if pub_dt < cutoff:
+                              continue
+                          item['pub_ts'] = int(pub_dt.timestamp())
+                      except Exception:
+                          item['pub_ts'] = 0
                       seen.add(item['title'])
                       item['tag'] = tag
                       all_news.append(item)
 
-          # 日付でソート（新しい順）
+          # 新着順ソート・上位15件
+          all_news.sort(key=lambda x: x.get('pub_ts', 0), reverse=True)
           all_news = all_news[:15]
 
           re_data = {
