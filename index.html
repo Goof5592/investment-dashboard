@@ -365,11 +365,68 @@
     el.innerHTML = `<span class="${cls}">${sign(change)}${fmtF(change)} (${sign(pct)}${fmtF(pct)}%)</span>`;
   }
 
-  // --- Yahoo Finance（プロキシ自動切替）---
+  // --- data.json から読む（GitHub Actions がサーバー側で取得したデータ）---
+  async function fetchFromDataJSON() {
+    try {
+      const res = await fetch(`data.json?t=${Date.now()}`);
+      if (!res.ok) return false;
+      const d = await res.json();
+      if (!d.updated || d.updated === 0) return false;
+
+      if (d.etf)    applyETF(d.etf);
+      if (d.ndx)    applyNDX(d.ndx);
+      if (d.usdjpy) applyUSDJPY(d.usdjpy);
+
+      // データ取得時刻を表示
+      const dataTime = new Date(d.updated * 1000);
+      const diffMin  = Math.round((Date.now() - dataTime) / 60000);
+      const label    = diffMin < 60 ? `${diffMin}分前` : `${Math.round(diffMin/60)}時間前`;
+      document.getElementById('lastUpdated').textContent =
+        `更新: ${new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}（データ: ${label}）`;
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function applyETF(d) {
+    const price = d.price;
+    const prev  = d.prevClose;
+    if (!price || !prev) { document.getElementById('etfPrice').textContent = 'エラー'; return; }
+    const chg  = price - prev;
+    const pct  = (chg / prev) * 100;
+    document.getElementById('etfPrice').textContent = `¥${fmt(price)}`;
+    setChange('etfChange', chg, pct);
+    const cv   = price * SHARES;
+    const pnl  = cv - PURCHASE_TOTAL;
+    const ppct = (pnl / PURCHASE_TOTAL) * 100;
+    const cls  = colorClass(pnl);
+    document.getElementById('currentValue').innerHTML      = `¥${fmt(cv)}`;
+    document.getElementById('currentPriceSub').textContent = `@${fmt(price)}円 × ${SHARES}株`;
+    document.getElementById('pnlValue').innerHTML          = `<span class="${cls}">${sign(pnl)}¥${fmt(pnl)}</span>`;
+    document.getElementById('pnlPct').innerHTML            = `<span class="${cls}">${sign(ppct)}${fmtF(ppct)}%</span>`;
+    if (d.timestamps?.length) drawChart(d.timestamps, d.closes);
+  }
+
+  function applyNDX(d) {
+    const price = d.price; const prev = d.prevClose;
+    if (!price || !prev) { document.getElementById('ndxPrice').textContent = 'エラー'; return; }
+    document.getElementById('ndxPrice').textContent = fmt(price);
+    setChange('ndxChange', price - prev, ((price - prev) / prev) * 100);
+  }
+
+  function applyUSDJPY(d) {
+    const price = d.price; const prev = d.prevClose;
+    if (!price || !prev) { document.getElementById('usdjpy').textContent = 'エラー'; return; }
+    document.getElementById('usdjpy').textContent = fmtF(price);
+    setChange('usdjpyChange', price - prev, ((price - prev) / prev) * 100);
+  }
+
+  // --- フォールバック：プロキシ経由の直接取得 ---
   const PROXIES = [
     u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
     u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
-    u => `https://thingproxy.freeboard.io/fetch/${u}`,
     u => u,
   ];
 
@@ -383,58 +440,24 @@
         if (json.chart?.result?.[0]) return json.chart.result[0];
       } catch (e) { continue; }
     }
-    console.error('All proxies failed:', symbol);
     return null;
   }
 
-  async function fetchETF() {
+  async function fetchETFfallback() {
     const d = await fetchYahoo('2840.T');
     if (!d) { document.getElementById('etfPrice').textContent = 'エラー'; return; }
-    const price = d.meta.regularMarketPrice;
-    const prev  = d.meta.chartPreviousClose || d.meta.previousClose;
-    const chg   = price - prev;
-    const pct   = (chg / prev) * 100;
-
-    document.getElementById('etfPrice').textContent = `¥${fmt(price)}`;
-    setChange('etfChange', chg, pct);
-
-    // 損益
-    const cv   = price * SHARES;
-    const pnl  = cv - PURCHASE_TOTAL;
-    const ppct = (pnl / PURCHASE_TOTAL) * 100;
-    const cls  = colorClass(pnl);
-
-    document.getElementById('currentValue').innerHTML    = `¥${fmt(cv)}`;
-    document.getElementById('currentPriceSub').textContent = `@${fmt(price)}円 × ${SHARES}株`;
-    document.getElementById('pnlValue').innerHTML        = `<span class="${cls}">${sign(pnl)}¥${fmt(pnl)}</span>`;
-    document.getElementById('pnlPct').innerHTML          = `<span class="${cls}">${sign(ppct)}${fmtF(ppct)}%</span>`;
-
-    // チャート
-    if (d.timestamp && d.indicators?.quote?.[0]?.close) {
-      drawChart(d.timestamp, d.indicators.quote[0].close);
-    }
+    applyETF({ price: d.meta.regularMarketPrice, prevClose: d.meta.chartPreviousClose || d.meta.previousClose,
+                timestamps: d.timestamp, closes: d.indicators?.quote?.[0]?.close });
   }
-
-  async function fetchNDX() {
+  async function fetchNDXfallback() {
     const d = await fetchYahoo('^NDX');
     if (!d) { document.getElementById('ndxPrice').textContent = 'エラー'; return; }
-    const price = d.meta.regularMarketPrice;
-    const prev  = d.meta.chartPreviousClose || d.meta.previousClose;
-    const chg   = price - prev;
-    const pct   = (chg / prev) * 100;
-    document.getElementById('ndxPrice').textContent = fmt(price);
-    setChange('ndxChange', chg, pct);
+    applyNDX({ price: d.meta.regularMarketPrice, prevClose: d.meta.chartPreviousClose || d.meta.previousClose });
   }
-
-  async function fetchUSDJPY() {
+  async function fetchUSDJPYfallback() {
     const d = await fetchYahoo('USDJPY=X');
     if (!d) { document.getElementById('usdjpy').textContent = 'エラー'; return; }
-    const price = d.meta.regularMarketPrice;
-    const prev  = d.meta.chartPreviousClose || d.meta.previousClose;
-    const chg   = price - prev;
-    const pct   = (chg / prev) * 100;
-    document.getElementById('usdjpy').textContent = fmtF(price);
-    setChange('usdjpyChange', chg, pct);
+    applyUSDJPY({ price: d.meta.regularMarketPrice, prevClose: d.meta.chartPreviousClose || d.meta.previousClose });
   }
 
   // --- Chart.js ---
@@ -549,14 +572,23 @@
   // --- メイン ---
   async function fetchAll() {
     document.getElementById('lastUpdated').textContent = '更新中...';
-    await Promise.all([fetchETF(), fetchNDX(), fetchUSDJPY(), fetchNews()]);
-    const now = new Date();
-    document.getElementById('lastUpdated').textContent =
-      `更新: ${now.toLocaleDateString('ja-JP')} ${now.toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'})}`;
+
+    // ① まず data.json（GitHub Actionsが毎時更新）を試す → CORSなし・PC/スマホ両対応
+    const ok = await fetchFromDataJSON();
+
+    // ② data.json が空 or 失敗ならプロキシ経由のAPIに切り替え
+    if (!ok) {
+      await Promise.all([fetchETFfallback(), fetchNDXfallback(), fetchUSDJPYfallback()]);
+      const now = new Date();
+      document.getElementById('lastUpdated').textContent =
+        `更新: ${now.toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'})}`;
+    }
+
+    await fetchNews();
   }
 
   fetchAll();
-  setInterval(fetchAll, 5 * 60 * 1000); // 5分ごと自動更新
+  setInterval(fetchAll, 5 * 60 * 1000);
 </script>
 </body>
 </html>
