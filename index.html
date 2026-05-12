@@ -330,6 +330,9 @@
 
   document.getElementById('inputPrice').value  = PURCHASE_PRICE;
   document.getElementById('inputShares').value = SHARES;
+  // ページ読み込み時に購入総額表示を localStorage の値で更新
+  document.getElementById('purchaseTotalDisplay').textContent = '¥' + Math.round(PURCHASE_TOTAL).toLocaleString('ja-JP');
+  document.getElementById('purchaseDetail').textContent = `@${Math.round(PURCHASE_PRICE).toLocaleString('ja-JP')}円 × ${SHARES}株`;
 
   function saveSettings() {
     const p = parseFloat(document.getElementById('inputPrice').value);
