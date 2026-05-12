@@ -124,7 +124,7 @@ jobs:
               'stocks':  stocks,
               'news':    all_news,
           }
-          with open('re-data.json', 'w', ensure_ascii=False) as f:
+          with open('re-data.json', 'w', encoding='utf-8') as f:
               json.dump(re_data, f, ensure_ascii=False)
           print("Rare earth data saved")
           PYEOF
