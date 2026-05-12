@@ -333,14 +333,14 @@
   // 手動更新データ（最終更新: 2026年5月・2025年度決算ベース）
   const FUND_MANUAL = {
     '6269.T': { equity: 31, fiscalMonth:  12, outlook: '増収増益予想', outCls: 'out-up'   },
-    '6330.T': { equity: 34, fiscalMonth:   3, outlook: '増収見込み',   outCls: 'out-up'   },
+    '6330.T': { equity: 34, fiscalMonth:   3, outlook: '赤字見込み',   outCls: 'out-down', pbr: 2.13, divYield: 0 },
     '2768.T': { equity: 22, fiscalMonth:   3, outlook: '横ばい予想',   outCls: 'out-flat' },
     '8053.T': { equity: 29, fiscalMonth:   3, outlook: '増収見込み',   outCls: 'out-up'   },
-    '5016.T': { equity: 47, fiscalMonth:   3, outlook: '増収増益予想', outCls: 'out-up'   },
+    '5016.T': { equity: 47, fiscalMonth:   3, outlook: '増収増益予想', outCls: 'out-up',   per: 47.43, pbr: 7.0,  divYield: 0.57 },
     '4063.T': { equity: 79, fiscalMonth:   3, outlook: '増収増益予想', outCls: 'out-up'   },
     '6501.T': { equity: 36, fiscalMonth:   3, outlook: '増収増益予想', outCls: 'out-up'   },
     '6367.T': { equity: 51, fiscalMonth:   3, outlook: '増収増益予想', outCls: 'out-up'   },
-    '5714.T': { equity: 54, fiscalMonth:   3, outlook: '増収見込み',   outCls: 'out-up'   },
+    '5714.T': { equity: 54, fiscalMonth:   3, outlook: '増収見込み',   outCls: 'out-up',   per: 11.22, pbr: 1.54, divYield: 3.07 },
     '5715.T': { equity: 43, fiscalMonth:   3, outlook: '横ばい予想',   outCls: 'out-flat' },
   };
 
@@ -377,7 +377,7 @@
       case 'roe':       return val > 0.15 ? 'fv-good' : val > 0.08 ? 'fv-ok' : 'fv-warn';
       case 'opMargin':  return val > 0.12 ? 'fv-good' : val > 0.05 ? 'fv-ok' : 'fv-warn';
       case 'revGrowth': return val > 0.05 ? 'fv-good' : val >= 0   ? 'fv-ok' : 'fv-warn';
-      case 'divYield':  return val > 0.03 ? 'fv-good' : val > 0.01 ? 'fv-ok' : 'fv-na';
+      case 'divYield':  return val > 3 ? 'fv-good' : val > 1 ? 'fv-ok' : 'fv-na';
       case 'equity':    return val > 50   ? 'fv-good' : val > 30   ? 'fv-ok' : 'fv-warn';
       default: return 'fv-ok';
     }
@@ -391,7 +391,7 @@
       case 'roe':       return `${(val * 100).toFixed(1)}%`;
       case 'opMargin':  return `${(val * 100).toFixed(1)}%`;
       case 'revGrowth': return `${val >= 0 ? '+' : ''}${(val * 100).toFixed(1)}%`;
-      case 'divYield':  return `${(val * 100).toFixed(2)}%`;
+      case 'divYield':  return val === 0 ? '0%' : `${val.toFixed(2)}%`;
       case 'equity':    return `${val}%`;
       default: return String(val);
     }
@@ -400,13 +400,17 @@
   function buildFundSection(symbol, fund) {
     const m = FUND_MANUAL[symbol] || {};
     const f = fund || {};
+    // 手動値が設定されている場合は手動値を優先
+    const per      = m.per      ?? f.per;
+    const pbr      = m.pbr      ?? f.pbr;
+    const divYield = m.divYield !== undefined ? m.divYield : f.divYield;
     const rows = [
-      ['PER',      fundColor('per',       f.per),       fmtFund('per',       f.per)],
-      ['PBR',      fundColor('pbr',       f.pbr),       fmtFund('pbr',       f.pbr)],
+      ['PER',      fundColor('per',       per),         fmtFund('per',       per)],
+      ['PBR',      fundColor('pbr',       pbr),         fmtFund('pbr',       pbr)],
       ['ROE',      fundColor('roe',       f.roe),       fmtFund('roe',       f.roe)],
       ['営業利益率', fundColor('opMargin',  f.opMargin),  fmtFund('opMargin',  f.opMargin)],
       ['売上前期比', fundColor('revGrowth', f.revGrowth), fmtFund('revGrowth', f.revGrowth)],
-      ['配当利回り', fundColor('divYield',  f.divYield),  fmtFund('divYield',  f.divYield)],
+      ['配当利回り', fundColor('divYield',  divYield),    fmtFund('divYield',  divYield)],
       ['自己資本比率', fundColor('equity',  m.equity),    fmtFund('equity',    m.equity)],
       ['決算月',    'fv-ok',                              m.fiscalMonth ? `${m.fiscalMonth}月期` : '—'],
     ];
