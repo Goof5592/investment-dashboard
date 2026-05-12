@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>レアアース投資ダッシュボード</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --card: #1a1d2e;
+      --border: #2a2d3e;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+      --blue: #3b82f6;
+      --orange: #f97316;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      padding: 16px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    /* ── Header ── */
+    header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px; flex-wrap:wrap; gap:10px; }
+    h1 { font-size:1.25rem; font-weight:700; }
+    .subtitle { color:var(--muted); font-size:0.78rem; margin-top:3px; }
+    .header-right { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+    .refresh-btn { background:var(--blue); color:#fff; border:none; padding:8px 14px; border-radius:8px; cursor:pointer; font-size:0.82rem; }
+    .refresh-btn:hover { opacity:0.85; }
+    .last-updated { color:var(--muted); font-size:0.72rem; }
+
+    /* ── Section label ── */
+    .section-label { font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px; padding-left:2px; }
+
+    /* ── Card base ── */
+    .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; }
+
+    /* ── Theme Status Banner ── */
+    .theme-banner {
+      background: linear-gradient(135deg, #1a2a1a, #0f1a0f);
+      border: 1px solid #2d4a2d;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .theme-phase { font-size:1.1rem; font-weight:700; color:#4ade80; }
+    .theme-desc  { font-size:0.8rem; color:var(--muted); line-height:1.6; }
+    .theme-timeline { font-size:0.75rem; background:#0d1f0d; border:1px solid #2d4a2d; border-radius:8px; padding:8px 12px; color:#86efac; }
+
+    /* ── Policy News ── */
+    .news-card { margin-bottom:14px; }
+    .news-item { border-bottom:1px solid var(--border); padding:10px 0; display:flex; gap:10px; align-items:flex-start; }
+    .news-item:first-child { padding-top:0; }
+    .news-item:last-child  { border-bottom:none; padding-bottom:0; }
+    .news-tag {
+      flex-shrink:0;
+      display:inline-block;
+      padding:2px 8px;
+      border-radius:4px;
+      font-size:0.68rem;
+      font-weight:600;
+      margin-top:2px;
+    }
+    .tag-meti      { background:#1a2a3a; color:#60a5fa; }
+    .tag-jogmec    { background:#1a3a2a; color:#4ade80; }
+    .tag-minamitori{ background:#3a2a0a; color:#fbbf24; }
+    .tag-policy    { background:#2a1a3a; color:#c084fc; }
+    .news-body { flex:1; }
+    .news-title-text { font-size:0.82rem; line-height:1.45; margin-bottom:3px; }
+    .news-title-text a { color:var(--text); text-decoration:none; }
+    .news-title-text a:hover { color:var(--blue); }
+    .news-date { font-size:0.7rem; color:var(--muted); }
+    .news-empty { color:var(--muted); font-size:0.82rem; text-align:center; padding:16px; }
+
+    /* ── Tier sections ── */
+    .tier-section { margin-bottom:18px; }
+    .tier-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .tier-badge {
+      padding: 4px 12px;
+      border-radius: 99px;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .tier-high   .tier-badge { background:#3b0a0a; color:#f87171; border:1px solid #7f1d1d; }
+    .tier-medium .tier-badge { background:#3b2a00; color:#fbbf24; border:1px solid #78350f; }
+    .tier-low    .tier-badge { background:#0a3b1a; color:#4ade80; border:1px solid #14532d; }
+    .tier-desc { font-size:0.75rem; color:var(--muted); }
+
+    /* ── Stock grid ── */
+    .stock-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .stock-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .stock-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+    .stock-name   { font-size:0.85rem; font-weight:600; }
+    .stock-ticker { font-size:0.68rem; color:var(--muted); margin-top:2px; }
+    .stock-price  { font-size:1.3rem; font-weight:700; margin-bottom:3px; }
+    .stock-change { font-size:0.8rem; margin-bottom:8px; }
+    .stock-perf   { font-size:0.72rem; color:var(--muted); margin-bottom:8px; }
+
+    .signal {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+    .signal-buy  { background:#052e16; color:#22c55e; border:1px solid #166534; }
+    .signal-watch{ background:#3b2a00; color:#fbbf24; border:1px solid #78350f; }
+    .signal-wait { background:#3b0a0a; color:#f87171; border:1px solid #7f1d1d; }
+    .signal-load { background:#1e1e2a; color:#94a3b8; border:1px solid var(--border); }
+
+    .stock-note { font-size:0.7rem; color:var(--muted); line-height:1.5; }
+
+    .up      { color:var(--green); }
+    .down    { color:var(--red); }
+    .neutral { color:var(--muted); }
+
+    /* ── Buy/Sell Guide ── */
+    .guide-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px; }
+    .guide-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; }
+    .guide-tier { font-size:0.78rem; font-weight:700; margin-bottom:10px; }
+    .guide-row  { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid var(--border); font-size:0.75rem; }
+    .guide-row:last-child { border-bottom:none; }
+    .guide-key  { color:var(--muted); }
+    .guide-val  { font-weight:500; text-align:right; }
+
+    /* ── Catalyst Watch ── */
+    .catalyst-card { margin-bottom:14px; }
+    .catalyst-list { list-style:none; }
+    .catalyst-item { display:flex; gap:10px; padding:9px 0; border-bottom:1px solid var(--border); font-size:0.8rem; line-height:1.5; }
+    .catalyst-item:last-child { border-bottom:none; }
+    .catalyst-dot { flex-shrink:0; width:8px; height:8px; border-radius:50%; margin-top:5px; }
+    .dot-high  { background:var(--red); }
+    .dot-med   { background:var(--yellow); }
+    .dot-low   { background:var(--green); }
+
+    footer { text-align:center; color:var(--muted); font-size:0.68rem; padding:12px 0 24px; line-height:1.9; }
+    a.back-link { color:var(--blue); font-size:0.78rem; text-decoration:none; }
+
+    .loading { color:var(--muted); font-size:0.8rem; padding:12px; text-align:center; }
+
+    @media (max-width:600px) {
+      .stock-grid  { grid-template-columns:1fr; }
+      .guide-grid  { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🏔️ レアアース投資ダッシュボード</h1>
+    <div class="subtitle">国産レアアース × 脱中国依存テーマ | 10銘柄 3ランク管理</div>
+  </div>
+  <div class="header-right">
+    <button class="refresh-btn" onclick="init()">↻ 更新</button>
+    <div class="last-updated" id="lastUpdated">—</div>
+  </div>
+</header>
+
+<!-- ── テーマ現状 ── -->
+<div class="theme-banner">
+  <div>
+    <div class="theme-phase">🟡 早期仕込み期</div>
+    <div class="theme-desc" style="margin-top:4px;">
+      2026年2月 南鳥島試掘成功 → 商業化まで5〜10年<br>
+      今は「ニュースが出る前に静かに仕込む」フェーズ
+    </div>
+  </div>
+  <div class="theme-timeline">
+    2026 試掘成功・政策加速 ← 今ここ<br>
+    2027〜28 商業化技術確立ニュース<br>
+    2030〜 実採掘開始（株価は先行）
+  </div>
+</div>
+
+<!-- ── 政策モニター ── -->
+<div class="section-label">📡 政策モニター ── 経産省・JOGMEC・政府公式発表（自動収集）</div>
+<div class="card news-card">
+  <div id="newsContainer"><div class="loading">ニュース取得中...</div></div>
+</div>
+
+<!-- ── 次の注目カタリスト ── -->
+<div class="section-label" style="margin-top:4px;">🔍 次の株価カタリスト（これが出たら動く）</div>
+<div class="card catalyst-card">
+  <ul class="catalyst-list">
+    <li class="catalyst-item">
+      <span class="catalyst-dot dot-high"></span>
+      <span><strong>商業採掘の事業化決定</strong> ── 政府・民間企業が商業化プロジェクトを正式承認。三井海洋開発・東洋エンジが最大の恩恵を受ける</span>
+    </li>
+    <li class="catalyst-item">
+      <span class="catalyst-dot dot-high"></span>
+      <span><strong>日米共同開発の具体的枠組み発表</strong> ── 住友商事（MPマテリアルズ）・双日（ライナス）が直接関連</span>
+    </li>
+    <li class="catalyst-item">
+      <span class="catalyst-dot dot-med"></span>
+      <span><strong>採掘コスト目標達成の発表</strong> ── 「商業的に採算が合う水準」の技術確立ニュース</span>
+    </li>
+    <li class="catalyst-item">
+      <span class="catalyst-dot dot-med"></span>
+      <span><strong>中国のレアアース輸出規制強化</strong> ── 規制が出るたびに日本の国産化テーマが再燃する</span>
+    </li>
+    <li class="catalyst-item">
+      <span class="catalyst-dot dot-low"></span>
+      <span><strong>関連企業の好決算・上方修正</strong> ── 各企業の通常の業績改善も株価押し上げ要因</span>
+    </li>
+  </ul>
+</div>
+
+<!-- ── 🔴 ハイリスク ── -->
+<div class="tier-section tier-high">
+  <div class="tier-header">
+    <span class="tier-badge">🔴 ハイリスク・直接プレイ</span>
+    <span class="tier-desc">商業化決定で大化け期待。ただし5〜10年待つ覚悟が必要。1〜2株の少額で</span>
+  </div>
+  <div class="stock-grid" id="grid-high">
+    <div class="loading">データ取得中...</div>
+  </div>
+</div>
+
+<!-- ── 🟡 ミドルリスク ── -->
+<div class="tier-section tier-medium">
+  <div class="tier-header">
+    <span class="tier-badge">🟡 ミドルリスク・安定プレイ</span>
+    <span class="tier-desc">既存ビジネスで安定収益あり。レアアース恩恵は上乗せ。少し多めに持てる</span>
+  </div>
+  <div class="stock-grid" id="grid-medium">
+    <div class="loading">データ取得中...</div>
+  </div>
+</div>
+
+<!-- ── 🟢 ローリスク ── -->
+<div class="tier-section tier-low">
+  <div class="tier-header">
+    <span class="tier-badge">🟢 ローリスク・間接プレイ</span>
+    <span class="tier-desc">超優良企業。レアアームは追い風程度。長期保有向き</span>
+  </div>
+  <div class="stock-grid" id="grid-low">
+    <div class="loading">データ取得中...</div>
+  </div>
+</div>
+
+<!-- ── 買い時・売り時ガイド ── -->
+<div class="section-label">📖 買い時・売り時ガイド</div>
+<div class="guide-grid">
+  <div class="guide-card">
+    <div class="guide-tier" style="color:#f87171;">🔴 ハイリスク銘柄</div>
+    <div class="guide-row"><span class="guide-key">いつ買う？</span><span class="guide-val">政策ニュース後の落ち着きを待つ</span></div>
+    <div class="guide-row"><span class="guide-key">何株買う？</span><span class="guide-val">1〜2株（試し買い）</span></div>
+    <div class="guide-row"><span class="guide-key">口座</span><span class="guide-val">特定口座推奨</span></div>
+    <div class="guide-row"><span class="guide-key">利益確定目標</span><span class="guide-val">+50%</span></div>
+    <div class="guide-row"><span class="guide-key">損切りライン</span><span class="guide-val">-20%</span></div>
+    <div class="guide-row"><span class="guide-key">保有期間</span><span class="guide-val">3〜10年</span></div>
+  </div>
+  <div class="guide-card">
+    <div class="guide-tier" style="color:#fbbf24;">🟡 ミドルリスク銘柄</div>
+    <div class="guide-row"><span class="guide-key">いつ買う？</span><span class="guide-val">決算通過後・株価落ち着き時</span></div>
+    <div class="guide-row"><span class="guide-key">何株買う？</span><span class="guide-val">2〜5株</span></div>
+    <div class="guide-row"><span class="guide-key">口座</span><span class="guide-val">NISA or 特定口座</span></div>
+    <div class="guide-row"><span class="guide-key">利益確定目標</span><span class="guide-val">+30%</span></div>
+    <div class="guide-row"><span class="guide-key">損切りライン</span><span class="guide-val">-15%</span></div>
+    <div class="guide-row"><span class="guide-key">保有期間</span><span class="guide-val">1〜5年</span></div>
+  </div>
+  <div class="guide-card">
+    <div class="guide-tier" style="color:#4ade80;">🟢 ローリスク銘柄</div>
+    <div class="guide-row"><span class="guide-key">いつ買う？</span><span class="guide-val">いつでも（分割購入推奨）</span></div>
+    <div class="guide-row"><span class="guide-key">何株買う？</span><span class="guide-val">3〜10株</span></div>
+    <div class="guide-row"><span class="guide-key">口座</span><span class="guide-val">NISA推奨（長期保有）</span></div>
+    <div class="guide-row"><span class="guide-key">利益確定目標</span><span class="guide-val">+20%（または長期保有）</span></div>
+    <div class="guide-row"><span class="guide-key">損切りライン</span><span class="guide-val">-10%</span></div>
+    <div class="guide-row"><span class="guide-key">保有期間</span><span class="guide-val">5年以上</span></div>
+  </div>
+</div>
+
+<footer>
+  <a href="index.html" class="back-link">← NASDAQダッシュボードに戻る</a>&nbsp;|&nbsp;
+  <a href="cerebras.html" class="back-link">⚡ Cerebras →</a><br><br>
+  株価データ: Yahoo Finance | ニュース: Google News（1時間ごと自動更新）<br>
+  ※ 投資は自己責任です。このページは情報提供のみで投資推奨ではありません。
+</footer>
+
+<script>
+  const STOCK_META = {
+    '6269.T': { name:'三井海洋開発',       ticker:'6269', tier:'high',   note:'揚泥技術の当事者。商業化決定で最大の恩恵。5〜10年の長期勝負' },
+    '6330.T': { name:'東洋エンジニアリング', ticker:'6330', tier:'high',   note:'海底資源処理プラントの設計。案件獲得ニュースに注目' },
+    '2768.T': { name:'双日',              ticker:'2768', tier:'medium', note:'ライナス（豪）出資済みで既に収益化。本業も安定' },
+    '8053.T': { name:'住友商事',           ticker:'8053', tier:'medium', note:'MPマテリアルズ（米）と独占契約。日米連携テーマに直結' },
+    '5016.T': { name:'JX金属',            ticker:'5016', tier:'medium', note:'豪州鉱山の権益取得済み。調達多角化の本命' },
+    '4063.T': { name:'信越化学工業',        ticker:'4063', tier:'medium', note:'ネオジム磁石製造。超優良企業にレアアース上乗せ' },
+    '6501.T': { name:'日立製作所',          ticker:'6501', tier:'low',   note:'都市鉱山リサイクル技術。本業のDXが主力' },
+    '6367.T': { name:'ダイキン工業',        ticker:'6367', tier:'low',   note:'エアコン磁石リサイクル。世界トップ空調メーカー' },
+    '5714.T': { name:'DOWAホールディングス', ticker:'5714', tier:'low',   note:'非鉄金属リサイクル精錬。地味だが着実な業績' },
+    '5715.T': { name:'古河機械金属',        ticker:'5715', tier:'low',   note:'鉱山機械事業。レアアースへの恩恵は限定的' },
+  };
+
+  const TAG_LABEL = {
+    meti:      { label:'経産省', cls:'tag-meti'       },
+    jogmec:    { label:'JOGMEC', cls:'tag-jogmec'     },
+    minamitori:{ label:'南鳥島', cls:'tag-minamitori' },
+    policy:    { label:'政策',   cls:'tag-policy'     },
+  };
+
+  function fmt(n)    { return Math.round(n).toLocaleString('ja-JP'); }
+  function fmtF(n,d=2){ return n.toLocaleString('ja-JP',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+  function sign(v)   { return v >= 0 ? '+' : ''; }
+  function cls(v)    { return v > 0 ? 'up' : v < 0 ? 'down' : 'neutral'; }
+
+  function calcSignal(d) {
+    if (!d || !d.closes || d.closes.length < 2) return { type:'load', label:'データ取得中' };
+    const first = d.closes[0];
+    const perf  = ((d.price - first) / first) * 100;
+    if (perf > 25)  return { type:'wait',  label:`割高注意 (+${fmtF(perf)}%)` };
+    if (perf < -10) return { type:'watch', label:`下落中 (${fmtF(perf)}%)` };
+    return { type:'buy', label:`仕込み検討 (${sign(perf)}${fmtF(perf)}%)` };
+  }
+
+  function buildStockCard(symbol, d) {
+    const meta   = STOCK_META[symbol];
+    if (!d || !d.price) {
+      return `<div class="stock-card">
+        <div class="stock-name">${meta.name}</div>
+        <div class="stock-ticker">${meta.ticker}</div>
+        <div class="stock-price neutral">—</div>
+        <div class="stock-note">データ取得できませんでした</div>
+      </div>`;
+    }
+    const chg    = d.price - d.prevClose;
+    const pct    = (chg / d.prevClose) * 100;
+    const signal = calcSignal(d);
+    const sigCls = { buy:'signal-buy', watch:'signal-watch', wait:'signal-wait', load:'signal-load' }[signal.type];
+    const first  = d.closes?.[0];
+    const perf30 = first ? ((d.price - first) / first * 100) : null;
+
+    return `<div class="stock-card">
+      <div class="stock-header">
+        <div>
+          <div class="stock-name">${meta.name}</div>
+          <div class="stock-ticker">(${meta.ticker})</div>
+        </div>
+      </div>
+      <div class="stock-price">¥${fmt(d.price)}</div>
+      <div class="stock-change ${cls(chg)}">${sign(chg)}${fmtF(chg)} (${sign(pct)}${fmtF(pct)}%)</div>
+      ${perf30 !== null ? `<div class="stock-perf">30日騰落率: <span class="${cls(perf30)}">${sign(perf30)}${fmtF(perf30)}%</span></div>` : ''}
+      <span class="signal ${sigCls}">${signal.label}</span>
+      <div class="stock-note">${meta.note}</div>
+    </div>`;
+  }
+
+  function renderNews(news) {
+    const container = document.getElementById('newsContainer');
+    if (!news || !news.length) {
+      container.innerHTML = '<div class="news-empty">ニュースを取得できませんでした</div>';
+      return;
+    }
+    container.innerHTML = news.map(n => {
+      const tag = TAG_LABEL[n.tag] || { label:'ニュース', cls:'tag-policy' };
+      const date = n.pub ? new Date(n.pub).toLocaleDateString('ja-JP') : '';
+      return `<div class="news-item">
+        <span class="news-tag ${tag.cls}">${tag.label}</span>
+        <div class="news-body">
+          <div class="news-title-text"><a href="${n.link}" target="_blank" rel="noopener">${n.title}</a></div>
+          <div class="news-date">${date}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function renderStocks(stocks) {
+    ['high','medium','low'].forEach(tier => {
+      const symbols = Object.keys(STOCK_META).filter(s => STOCK_META[s].tier === tier);
+      const html    = symbols.map(s => buildStockCard(s, stocks[s])).join('');
+      document.getElementById(`grid-${tier}`).innerHTML = html;
+    });
+  }
+
+  async function init() {
+    document.getElementById('lastUpdated').textContent = '更新中...';
+    try {
+      const res  = await fetch(`re-data.json?t=${Date.now()}`);
+      const data = await res.json();
+
+      if (data.updated && data.updated > 0) {
+        renderStocks(data.stocks || {});
+        renderNews(data.news || []);
+        const age    = Math.round((Date.now() - data.updated * 1000) / 60000);
+        const ageStr = age < 60 ? `${age}分前` : `${Math.round(age/60)}時間前`;
+        document.getElementById('lastUpdated').textContent =
+          `更新: ${new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}（データ: ${ageStr}）`;
+      } else {
+        // データ未取得
+        ['high','medium','low'].forEach(tier => {
+          document.getElementById(`grid-${tier}`).innerHTML =
+            '<div class="loading">GitHub Actionsがデータを取得中です（初回は約1時間後）</div>';
+        });
+        document.getElementById('newsContainer').innerHTML =
+          '<div class="news-empty">データ取得中です（GitHub Actionsが自動実行されるまでお待ちください）</div>';
+        document.getElementById('lastUpdated').textContent = 'データ準備中...';
+      }
+    } catch(e) {
+      console.error(e);
+      document.getElementById('lastUpdated').textContent = '取得エラー';
+    }
+  }
+
+  init();
+  setInterval(init, 5 * 60 * 1000);
+</script>
+</body>
+</html>
