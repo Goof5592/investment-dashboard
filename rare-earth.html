@@ -337,10 +337,15 @@
   function sign(v)   { return v >= 0 ? '+' : ''; }
   function cls(v)    { return v > 0 ? 'up' : v < 0 ? 'down' : 'neutral'; }
 
+  function calc30dPerf(d) {
+    if (!d || !d.closes || d.closes.length < 2) return null;
+    const base = d.closes.length >= 30 ? d.closes[d.closes.length - 30] : d.closes[0];
+    return ((d.price - base) / base) * 100;
+  }
+
   function calcSignal(d) {
-    if (!d || !d.closes || d.closes.length < 2) return { type:'load', label:'データ取得中' };
-    const first = d.closes[0];
-    const perf  = ((d.price - first) / first) * 100;
+    const perf = calc30dPerf(d);
+    if (perf === null) return { type:'load', label:'データ取得中' };
     if (perf > 25)  return { type:'wait',  label:`割高注意 (+${fmtF(perf)}%)` };
     if (perf < -10) return { type:'watch', label:`下落中 (${fmtF(perf)}%)` };
     return { type:'buy', label:`仕込み検討 (${sign(perf)}${fmtF(perf)}%)` };
@@ -360,8 +365,7 @@
     const pct    = (chg / d.prevClose) * 100;
     const signal = calcSignal(d);
     const sigCls = { buy:'signal-buy', watch:'signal-watch', wait:'signal-wait', load:'signal-load' }[signal.type];
-    const first  = d.closes?.[0];
-    const perf30 = first ? ((d.price - first) / first * 100) : null;
+    const perf30 = calc30dPerf(d);
 
     return `<div class="stock-card">
       <div class="stock-header">
@@ -372,7 +376,7 @@
       </div>
       <div class="stock-price">¥${fmt(d.price)}</div>
       <div class="stock-change ${cls(chg)}">${sign(chg)}${fmtF(chg)} (${sign(pct)}${fmtF(pct)}%)</div>
-      ${perf30 !== null ? `<div class="stock-perf">1年騰落率: <span class="${cls(perf30)}">${sign(perf30)}${fmtF(perf30)}%</span></div>` : ''}
+      ${perf30 !== null ? `<div class="stock-perf">30日騰落率: <span class="${cls(perf30)}">${sign(perf30)}${fmtF(perf30)}%</span></div>` : ''}
       <div class="stock-chart-wrap"><canvas id="chart-${symbol.replace('.','_')}"></canvas></div>
       <span class="signal ${sigCls}">${signal.label}</span>
       <div class="stock-note">${meta.note}</div>
