@@ -200,12 +200,78 @@ jobs:
           with open('re-data.json', 'w', encoding='utf-8') as f:
               json.dump(re_data, f, ensure_ascii=False)
           print("Rare earth data saved")
+
+          # ── 半導体・AI ダッシュボード用 ─────────────────────
+          SEMI_STOCKS = [
+              ('ABEJA',               '5574.T', 'ai'),
+              ('PKSHAテクノロジー',    '3993.T', 'ai'),
+              ('東京エレクトロン',      '8035.T', 'equipment'),
+              ('アドバンテスト',        '6857.T', 'equipment'),
+              ('ディスコ',             '6146.T', 'equipment'),
+              ('SCREENホールディングス','7735.T', 'equipment'),
+              ('荏原製作所',           '6361.T', 'equipment'),
+              ('豊田通商',             '8015.T', 'related'),
+              ('京セラ',              '6971.T', 'related'),
+              ('THK',                 '6481.T', 'related'),
+              ('ブロードリーフ',        '3673.T', 'related'),
+          ]
+
+          semi_stocks = {}
+          for name, symbol, group in SEMI_STOCKS:
+              d = fetch_yahoo(symbol, range='1y', limit=260)
+              if d:
+                  d['name']  = name
+                  d['group'] = group
+                  d['fund']  = fetch_fundamentals(symbol)
+              semi_stocks[symbol] = d
+              print(f"{name}: {d['price'] if d else 'error'}")
+
+          # 個別銘柄ニュース
+          semi_news_queries = [
+              ('ABEJA 株 AI',              '5574.T'),
+              ('PKSHA テクノロジー 株',     '3993.T'),
+              ('東京エレクトロン 株 決算',   '8035.T'),
+              ('アドバンテスト 株 半導体',   '6857.T'),
+              ('ディスコ 株 切削',          '6146.T'),
+              ('SCREEN ホールディングス 株', '7735.T'),
+              ('荏原製作所 株 決算',        '6361.T'),
+              ('豊田通商 株 決算',          '8015.T'),
+              ('京セラ 株 決算',            '6971.T'),
+              ('THK 株 直動',              '6481.T'),
+              ('ブロードリーフ 株',          '3673.T'),
+          ]
+
+          cutoff_semi = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=60)
+          semi_news = {}
+          for query, symbol in semi_news_queries:
+              items = []
+              for item in fetch_news(query, 5):
+                  try:
+                      pub_dt = parsedate_to_datetime(item['pub'])
+                      if pub_dt < cutoff_semi:
+                          continue
+                      item['pub_ts'] = int(pub_dt.timestamp())
+                  except Exception:
+                      item['pub_ts'] = 0
+                  items.append(item)
+              items.sort(key=lambda x: x.get('pub_ts', 0), reverse=True)
+              semi_news[symbol] = items[:3]
+
+          semi_data = {
+              'updated': int(time.time()),
+              'usdjpy':  fetch_yahoo('USDJPY=X'),
+              'stocks':  semi_stocks,
+              'news':    semi_news,
+          }
+          with open('semi-data.json', 'w', encoding='utf-8') as f:
+              json.dump(semi_data, f, ensure_ascii=False)
+          print("Semi data saved")
           PYEOF
 
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data.json re-data.json
+          git add data.json re-data.json semi-data.json
           git diff --staged --quiet || git commit -m "chore: update stock data [skip ci]"
           git push

@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>半導体・AI投資ダッシュボード</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --card: #1a1d2e;
+      --border: #2a2d3e;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+      --blue: #3b82f6;
+      --purple: #a855f7;
+      --teal: #14b8a6;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      padding: 16px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    /* ── Header ── */
+    header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px; flex-wrap:wrap; gap:10px; }
+    h1 { font-size:1.25rem; font-weight:700; }
+    .subtitle { color:var(--muted); font-size:0.78rem; margin-top:3px; }
+    .header-right { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+    .header-meta { display:flex; align-items:center; gap:10px; }
+    .usdjpy-badge {
+      background:#1a2a3a; border:1px solid #2a4a6a; border-radius:8px;
+      padding:5px 12px; font-size:0.8rem; color:#60a5fa; font-weight:600;
+    }
+    .usdjpy-badge span { color:var(--muted); font-weight:400; margin-right:4px; }
+    .refresh-btn { background:var(--blue); color:#fff; border:none; padding:8px 14px; border-radius:8px; cursor:pointer; font-size:0.82rem; }
+    .refresh-btn:hover { opacity:0.85; }
+    .last-updated { color:var(--muted); font-size:0.72rem; }
+
+    /* ── Section label ── */
+    .section-label { font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px; padding-left:2px; }
+
+    /* ── Card base ── */
+    .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; }
+
+    /* ── Theme Banner ── */
+    .theme-banner {
+      background: linear-gradient(135deg, #12102a, #0f1a2e);
+      border: 1px solid #2a2a5a;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .theme-phase { font-size:1.1rem; font-weight:700; color:#818cf8; }
+    .theme-desc  { font-size:0.8rem; color:var(--muted); line-height:1.6; }
+    .theme-timeline { font-size:0.75rem; background:#0d0d2e; border:1px solid #2a2a5a; border-radius:8px; padding:8px 12px; color:#a5b4fc; white-space:nowrap; }
+
+    /* ── Group sections ── */
+    .group-section { margin-bottom:20px; }
+    .group-header {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 10px; padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .group-badge {
+      padding: 4px 12px; border-radius: 99px;
+      font-size: 0.78rem; font-weight: 700;
+    }
+    .group-ai        .group-badge { background:#2d1a4a; color:#c084fc; border:1px solid #6d28d9; }
+    .group-equipment .group-badge { background:#1a2a4a; color:#60a5fa; border:1px solid #1d4ed8; }
+    .group-related   .group-badge { background:#0a2a2a; color:#2dd4bf; border:1px solid #0f766e; }
+    .group-desc { font-size:0.75rem; color:var(--muted); }
+
+    /* ── Stock grid ── */
+    .stock-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .stock-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .stock-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+    .stock-name   { font-size:0.85rem; font-weight:600; }
+    .stock-ticker { font-size:0.68rem; color:var(--muted); margin-top:2px; }
+    .stock-price  { font-size:1.3rem; font-weight:700; margin-bottom:3px; }
+    .stock-change { font-size:0.8rem; margin-bottom:8px; }
+    .stock-perf   { font-size:0.72rem; color:var(--muted); margin-bottom:8px; }
+
+    .signal {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 10px; border-radius: 6px;
+      font-size: 0.75rem; font-weight: 600; margin-bottom: 6px;
+    }
+    .signal-buy  { background:#052e16; color:#22c55e; border:1px solid #166534; }
+    .signal-watch{ background:#3b2a00; color:#fbbf24; border:1px solid #78350f; }
+    .signal-wait { background:#3b0a0a; color:#f87171; border:1px solid #7f1d1d; }
+    .signal-load { background:#1e1e2a; color:#94a3b8; border:1px solid var(--border); }
+
+    .stock-note { font-size:0.7rem; color:var(--muted); line-height:1.5; }
+    .stock-chart-wrap { margin: 10px 0 6px; height: 80px; }
+
+    /* ── Fundamentals ── */
+    .fund-section { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+    .fund-title { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+    .fund-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 8px; }
+    .fund-item { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; }
+    .fund-label { font-size: 0.68rem; color: var(--muted); }
+    .fund-val { font-size: 0.72rem; font-weight: 600; }
+    .fv-good { color: #22c55e; }
+    .fv-ok   { color: #f59e0b; }
+    .fv-warn { color: #ef4444; }
+    .fv-na   { color: #4a5568; }
+    .fund-outlook { margin-top: 5px; font-size: 0.7rem; display: flex; justify-content: space-between; align-items: center; }
+    .out-up   { color: #22c55e; font-weight: 600; }
+    .out-flat { color: #f59e0b; font-weight: 600; }
+    .out-down { color: #ef4444; font-weight: 600; }
+    .fund-note { font-size: 0.62rem; color: #4a5568; margin-top: 4px; }
+
+    .up      { color:var(--green); }
+    .down    { color:var(--red); }
+    .neutral { color:var(--muted); }
+
+    /* ── News accordion ── */
+    .news-section { margin-top: 24px; }
+    .news-accordion { margin-bottom: 8px; }
+    .news-toggle {
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      color: var(--text);
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-align: left;
+    }
+    .news-toggle:hover { border-color: #3a3d5e; }
+    .news-toggle.open { border-radius: 10px 10px 0 0; border-bottom-color: transparent; }
+    .news-toggle-arrow { color: var(--muted); transition: transform 0.2s; font-size: 0.75rem; }
+    .news-toggle.open .news-toggle-arrow { transform: rotate(180deg); }
+    .news-ticker-badge {
+      font-size: 0.68rem; color: var(--muted);
+      background: #1e2030; border: 1px solid var(--border);
+      border-radius: 4px; padding: 2px 7px; margin-left: 8px; font-weight: 400;
+    }
+    .news-panel {
+      display: none;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 10px 10px;
+      padding: 0 16px;
+    }
+    .news-panel.open { display: block; }
+    .news-item { border-bottom:1px solid var(--border); padding:10px 0; }
+    .news-item:last-child { border-bottom:none; }
+    .news-title-text { font-size:0.82rem; line-height:1.45; margin-bottom:3px; }
+    .news-title-text a { color:var(--text); text-decoration:none; }
+    .news-title-text a:hover { color:var(--blue); }
+    .news-date { font-size:0.7rem; color:var(--muted); }
+    .news-new { display:inline-block; background:#052e16; color:#22c55e; border:1px solid #166534; font-size:0.65rem; font-weight:700; padding:1px 6px; border-radius:4px; margin-left:6px; vertical-align:middle; }
+    .news-empty { color:var(--muted); font-size:0.82rem; padding:12px 0; }
+
+    .loading { color:var(--muted); font-size:0.8rem; padding:12px; text-align:center; }
+
+    footer { text-align:center; color:var(--muted); font-size:0.68rem; padding:12px 0 24px; line-height:1.9; }
+    a.back-link { color:var(--blue); font-size:0.78rem; text-decoration:none; }
+
+    @media (max-width:600px) {
+      .stock-grid { grid-template-columns:1fr; }
+      .theme-timeline { white-space:normal; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>⚡ 半導体・AI投資ダッシュボード</h1>
+    <div class="subtitle">国内AI × 半導体製造装置 × 関連商社 | 11銘柄 3カテゴリ管理</div>
+  </div>
+  <div class="header-right">
+    <div class="header-meta">
+      <div class="usdjpy-badge"><span>USD/JPY</span><span id="usdjpyVal">—</span></div>
+      <button class="refresh-btn" onclick="init()">↻ 更新</button>
+    </div>
+    <div class="last-updated" id="lastUpdated">—</div>
+  </div>
+</header>
+
+<!-- ── テーマ現状 ── -->
+<div class="theme-banner">
+  <div>
+    <div class="theme-phase">🟣 AI設備投資サイクル加速期</div>
+    <div class="theme-desc" style="margin-top:4px;">
+      データセンター爆発的需要 → 半導体需要増 → 製造装置・材料に追い風<br>
+      今は「AI需要の川上（装置・素材）に乗る」フェーズ
+    </div>
+  </div>
+  <div class="theme-timeline">
+    2025〜26 AI設備投資急増 ← 今ここ<br>
+    2027〜28 次世代ノード装置更新サイクル<br>
+    2030〜 AI普及成熟・装置更新需要継続
+  </div>
+</div>
+
+<!-- ── 💜 国内AI ── -->
+<div class="group-section group-ai">
+  <div class="group-header">
+    <span class="group-badge">💜 国内AIソフト</span>
+    <span class="group-desc">AI活用・LLM・エンタープライズAIの国内プレイ</span>
+  </div>
+  <div class="stock-grid" id="grid-ai">
+    <div class="loading">データ取得中...</div>
+  </div>
+</div>
+
+<!-- ── 🔵 半導体製造装置 ── -->
+<div class="group-section group-equipment">
+  <div class="group-header">
+    <span class="group-badge">🔵 半導体製造装置</span>
+    <span class="group-desc">AI半導体製造の川上。設備投資サイクルに直結</span>
+  </div>
+  <div class="stock-grid" id="grid-equipment">
+    <div class="loading">データ取得中...</div>
+  </div>
+</div>
+
+<!-- ── 🟢 関連・商社 ── -->
+<div class="group-section group-related">
+  <div class="group-header">
+    <span class="group-badge">🟢 関連・商社</span>
+    <span class="group-desc">半導体サプライチェーン・素材・商社。間接的恩恵</span>
+  </div>
+  <div class="stock-grid" id="grid-related">
+    <div class="loading">データ取得中...</div>
+  </div>
+</div>
+
+<!-- ── 個別銘柄ニュース ── -->
+<div class="news-section">
+  <div class="section-label">📰 個別銘柄ニュース（自動収集 60日以内）</div>
+  <div id="newsContainer">
+    <div class="loading">ニュース取得中...</div>
+  </div>
+</div>
+
+<footer>
+  <a href="index.html" class="back-link">← NASDAQ</a>&nbsp;|&nbsp;
+  <a href="rare-earth.html" class="back-link">🏔️ レアアース</a><br><br>
+  株価データ: Yahoo Finance | ニュース: Google News（1時間ごと自動更新）<br>
+  ※ 投資は自己責任です。このページは情報提供のみで投資推奨ではありません。
+</footer>
+
+<script>
+  // 手動更新データ（初期値：要SBI証券確認後更新）
+  const FUND_MANUAL = {
+    '5574.T': { fiscalMonth: 10, outlook: '—', outCls: 'fv-ok' },
+    '3993.T': { fiscalMonth:  8, outlook: '—', outCls: 'fv-ok' },
+    '8035.T': { fiscalMonth:  3, outlook: '—', outCls: 'fv-ok' },
+    '6857.T': { fiscalMonth:  3, outlook: '—', outCls: 'fv-ok' },
+    '6146.T': { fiscalMonth:  3, outlook: '—', outCls: 'fv-ok' },
+    '7735.T': { fiscalMonth:  3, outlook: '—', outCls: 'fv-ok' },
+    '6361.T': { fiscalMonth: 12, outlook: '—', outCls: 'fv-ok' },
+    '8015.T': { fiscalMonth:  3, outlook: '—', outCls: 'fv-ok' },
+    '6971.T': { fiscalMonth:  3, outlook: '—', outCls: 'fv-ok' },
+    '6481.T': { fiscalMonth: 12, outlook: '—', outCls: 'fv-ok' },
+    '3673.T': { fiscalMonth: 12, outlook: '—', outCls: 'fv-ok' },
+  };
+
+  const STOCK_META = {
+    '5574.T': { name:'ABEJA',              ticker:'5574', group:'ai',        note:'AIプラットフォーム「ABEJA Platform」。製造業DXが主力。赤字体質だが成長期待' },
+    '3993.T': { name:'PKSHAテクノロジー',   ticker:'3993', group:'ai',        note:'自然言語処理・機械学習。大手企業向けAIアルゴリズム提供。安定成長型' },
+    '8035.T': { name:'東京エレクトロン',     ticker:'8035', group:'equipment', note:'前工程装置で世界有数。AI向けHBM・ロジック半導体需要に直結' },
+    '6857.T': { name:'アドバンテスト',       ticker:'6857', group:'equipment', note:'半導体テスト装置大手。AI専用チップ増加でテスト需要拡大' },
+    '6146.T': { name:'ディスコ',            ticker:'6146', group:'equipment', note:'切削・研削装置で高シェア。先端パッケージング需要増で恩恵' },
+    '7735.T': { name:'SCREENホールディングス',ticker:'7735', group:'equipment', note:'洗浄装置に強み。枚葉式洗浄で高シェア。設備投資増で順調' },
+    '6361.T': { name:'荏原製作所',          ticker:'6361', group:'equipment', note:'CMP装置・真空ポンプ。半導体需要増の恩恵は比較的間接的' },
+    '8015.T': { name:'豊田通商',            ticker:'8015', group:'related',   note:'半導体・電子部品の商社機能。サプライチェーン構築力が強み' },
+    '6971.T': { name:'京セラ',             ticker:'6971', group:'related',   note:'半導体パッケージ基板・セラミック部品。多角経営で安定' },
+    '6481.T': { name:'THK',               ticker:'6481', group:'related',   note:'直動案内・ボールねじ。半導体製造装置に多数採用' },
+    '3673.T': { name:'ブロードリーフ',      ticker:'3673', group:'related',   note:'自動車整備業向けSaaS。半導体とは異業種だが成長性に期待' },
+  };
+
+  function fmt(n)     { return Math.round(n).toLocaleString('ja-JP'); }
+  function fmtF(n,d=2){ return n.toLocaleString('ja-JP',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+  function sign(v)    { return v >= 0 ? '+' : ''; }
+  function cls(v)     { return v > 0 ? 'up' : v < 0 ? 'down' : 'neutral'; }
+
+  function fundColor(key, val) {
+    if (val == null || val === '' || isNaN(val)) return 'fv-na';
+    switch (key) {
+      case 'per':       return val < 15 ? 'fv-good' : val < 30 ? 'fv-ok' : 'fv-warn';
+      case 'pbr':       return val < 1  ? 'fv-good' : val < 3  ? 'fv-ok' : 'fv-warn';
+      case 'roe':       return val > 0.15 ? 'fv-good' : val > 0.08 ? 'fv-ok' : 'fv-warn';
+      case 'opMargin':  return val > 0.12 ? 'fv-good' : val > 0.05 ? 'fv-ok' : 'fv-warn';
+      case 'revGrowth': return val > 0.05 ? 'fv-good' : val >= 0   ? 'fv-ok' : 'fv-warn';
+      case 'divYield':  return val > 3 ? 'fv-good' : val > 1 ? 'fv-ok' : 'fv-na';
+      case 'equity':    return val > 50   ? 'fv-good' : val > 30   ? 'fv-ok' : 'fv-warn';
+      default: return 'fv-ok';
+    }
+  }
+
+  function fmtFund(key, val) {
+    if (val == null || isNaN(val)) return '—';
+    switch (key) {
+      case 'per':       return `${val.toFixed(1)}倍`;
+      case 'pbr':       return `${val.toFixed(2)}倍`;
+      case 'roe':       return `${(val * 100).toFixed(1)}%`;
+      case 'opMargin':  return `${(val * 100).toFixed(1)}%`;
+      case 'revGrowth': return `${val >= 0 ? '+' : ''}${(val * 100).toFixed(1)}%`;
+      case 'divYield':  return val === 0 ? '0%' : `${val.toFixed(2)}%`;
+      case 'equity':    return `${val}%`;
+      default: return String(val);
+    }
+  }
+
+  function buildFundSection(symbol, fund) {
+    const m = FUND_MANUAL[symbol] || {};
+    const f = fund || {};
+    const per      = m.per      ?? f.per;
+    const pbr      = m.pbr      ?? f.pbr;
+    const divYield = m.divYield !== undefined ? m.divYield : f.divYield;
+    const rows = [
+      ['PER',       fundColor('per',       per),         fmtFund('per',       per)],
+      ['PBR',       fundColor('pbr',       pbr),         fmtFund('pbr',       pbr)],
+      ['ROE',       fundColor('roe',       f.roe),       fmtFund('roe',       f.roe)],
+      ['営業利益率',  fundColor('opMargin',  f.opMargin),  fmtFund('opMargin',  f.opMargin)],
+      ['売上前期比',  fundColor('revGrowth', f.revGrowth), fmtFund('revGrowth', f.revGrowth)],
+      ['配当利回り',  fundColor('divYield',  divYield),    fmtFund('divYield',  divYield)],
+      ['自己資本比率', fundColor('equity',   m.equity),    fmtFund('equity',    m.equity)],
+      ['決算月',     'fv-ok',                              m.fiscalMonth ? `${m.fiscalMonth}月期` : '—'],
+    ];
+    const gridHtml = rows.map(([label, c, val]) =>
+      `<div class="fund-item"><span class="fund-label">${label}</span><span class="fund-val ${c}">${val}</span></div>`
+    ).join('');
+    return `<div class="fund-section">
+      <div class="fund-title">ファンダメンタルズ</div>
+      <div class="fund-grid">${gridHtml}</div>
+      <div class="fund-outlook">
+        <span class="fund-label">次期予想</span>
+        <span class="${m.outCls || 'fv-ok'}">${m.outlook || '—'}</span>
+      </div>
+      <div class="fund-note">※ SBI証券確認後に手動更新予定｜ROE・営業利益率はYahoo Finance自動取得</div>
+    </div>`;
+  }
+
+  function calc30dPerf(d) {
+    if (!d || !d.closes || d.closes.length < 2) return null;
+    const base = d.closes.length >= 30 ? d.closes[d.closes.length - 30] : d.closes[0];
+    return ((d.price - base) / base) * 100;
+  }
+
+  function calcSignal(d) {
+    const perf = calc30dPerf(d);
+    if (perf === null) return { type:'load', label:'データ取得中' };
+    if (perf > 25)  return { type:'wait',  label:`割高注意 (+${fmtF(perf)}%)` };
+    if (perf < -10) return { type:'watch', label:`下落中 (${fmtF(perf)}%)` };
+    return { type:'buy', label:`仕込み検討 (${sign(perf)}${fmtF(perf)}%)` };
+  }
+
+  function buildStockCard(symbol, d) {
+    const meta = STOCK_META[symbol];
+    if (!d || !d.price) {
+      return `<div class="stock-card">
+        <div class="stock-name">${meta.name}</div>
+        <div class="stock-ticker">${meta.ticker}</div>
+        <div class="stock-price neutral">—</div>
+        <div class="stock-note">データ取得できませんでした</div>
+      </div>`;
+    }
+    const chg    = d.price - d.prevClose;
+    const pct    = (chg / d.prevClose) * 100;
+    const signal = calcSignal(d);
+    const sigCls = { buy:'signal-buy', watch:'signal-watch', wait:'signal-wait', load:'signal-load' }[signal.type];
+    const perf30 = calc30dPerf(d);
+
+    return `<div class="stock-card">
+      <div class="stock-header">
+        <div>
+          <div class="stock-name">${meta.name}</div>
+          <div class="stock-ticker">(${meta.ticker})</div>
+        </div>
+      </div>
+      <div class="stock-price">¥${fmt(d.price)}</div>
+      <div class="stock-change ${cls(chg)}">${sign(chg)}${fmtF(chg)} (${sign(pct)}${fmtF(pct)}%)</div>
+      ${perf30 !== null ? `<div class="stock-perf">30日騰落率: <span class="${cls(perf30)}">${sign(perf30)}${fmtF(perf30)}%</span></div>` : ''}
+      <div class="stock-chart-wrap"><canvas id="chart-${symbol.replace('.','_')}"></canvas></div>
+      <span class="signal ${sigCls}">${signal.label}</span>
+      <div class="stock-note">${meta.note}</div>
+      ${buildFundSection(symbol, d.fund)}
+    </div>`;
+  }
+
+  const _charts = {};
+
+  function drawCharts(stocks) {
+    Object.entries(stocks).forEach(([symbol, d]) => {
+      if (!d || !d.closes || d.closes.length < 2) return;
+      const id = 'chart-' + symbol.replace('.', '_');
+      const canvas = document.getElementById(id);
+      if (!canvas) return;
+      if (_charts[id]) { _charts[id].destroy(); }
+      const first = d.closes[0];
+      const last  = d.closes[d.closes.length - 1];
+      const color = last >= first ? '#22c55e' : '#ef4444';
+      const labels = d.timestamps.map(ts => {
+        const dt = new Date(ts * 1000);
+        return `${dt.getMonth()+1}/${dt.getDate()}`;
+      });
+      _charts[id] = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            data: d.closes,
+            borderColor: color,
+            borderWidth: 1.5,
+            pointRadius: 0,
+            fill: true,
+            backgroundColor: color + '18',
+            tension: 0.3,
+          }]
+        },
+        options: {
+          animation: false,
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: {
+            callbacks: { label: ctx => `¥${Math.round(ctx.raw).toLocaleString('ja-JP')}` }
+          }},
+          scales: {
+            x: { display: false },
+            y: { display: false, grace: '5%' }
+          }
+        }
+      });
+    });
+  }
+
+  function renderStocks(stocks) {
+    ['ai','equipment','related'].forEach(group => {
+      const symbols = Object.keys(STOCK_META).filter(s => STOCK_META[s].group === group);
+      const html    = symbols.map(s => buildStockCard(s, stocks[s])).join('');
+      document.getElementById(`grid-${group}`).innerHTML = html;
+    });
+    drawCharts(stocks);
+  }
+
+  function renderNews(news) {
+    const container = document.getElementById('newsContainer');
+    if (!news) {
+      container.innerHTML = '<div class="loading">ニュースデータがありません</div>';
+      return;
+    }
+    const now = Date.now();
+    const html = Object.keys(STOCK_META).map(symbol => {
+      const meta  = STOCK_META[symbol];
+      const items = news[symbol] || [];
+      const newsHtml = items.length === 0
+        ? '<div class="news-empty">直近60日以内のニュースはありません</div>'
+        : items.map(n => {
+            const pubTs = n.pub_ts ? n.pub_ts * 1000 : (n.pub ? new Date(n.pub).getTime() : 0);
+            const date  = pubTs ? new Date(pubTs).toLocaleDateString('ja-JP') : '';
+            const isNew = pubTs && (now - pubTs) < 7 * 24 * 60 * 60 * 1000;
+            return `<div class="news-item">
+              <div class="news-title-text">
+                <a href="${n.link}" target="_blank" rel="noopener">${n.title}</a>
+                ${isNew ? '<span class="news-new">NEW</span>' : ''}
+              </div>
+              <div class="news-date">${date}${n.source ? ' — ' + n.source : ''}</div>
+            </div>`;
+          }).join('');
+
+      return `<div class="news-accordion">
+        <button class="news-toggle" onclick="toggleNews(this)">
+          <span>${meta.name}<span class="news-ticker-badge">${meta.ticker}</span></span>
+          <span class="news-toggle-arrow">▼</span>
+        </button>
+        <div class="news-panel">${newsHtml}</div>
+      </div>`;
+    }).join('');
+
+    container.innerHTML = html;
+  }
+
+  function toggleNews(btn) {
+    btn.classList.toggle('open');
+    btn.nextElementSibling.classList.toggle('open');
+  }
+
+  async function init() {
+    document.getElementById('lastUpdated').textContent = '更新中...';
+    try {
+      const res  = await fetch(`semi-data.json?t=${Date.now()}`);
+      const data = await res.json();
+
+      if (data.updated && data.updated > 0) {
+        renderStocks(data.stocks || {});
+        renderNews(data.news || {});
+
+        if (data.usdjpy && data.usdjpy.price) {
+          document.getElementById('usdjpyVal').textContent = data.usdjpy.price.toFixed(2);
+        }
+
+        const age    = Math.round((Date.now() - data.updated * 1000) / 60000);
+        const ageStr = age < 60 ? `${age}分前` : `${Math.round(age/60)}時間前`;
+        document.getElementById('lastUpdated').textContent =
+          `更新: ${new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}（データ: ${ageStr}）`;
+      } else {
+        ['ai','equipment','related'].forEach(g => {
+          document.getElementById(`grid-${g}`).innerHTML =
+            '<div class="loading">GitHub Actionsがデータを取得中です（初回は約1時間後）</div>';
+        });
+        document.getElementById('newsContainer').innerHTML =
+          '<div class="loading">データ取得中です</div>';
+        document.getElementById('lastUpdated').textContent = 'データ準備中...';
+      }
+    } catch(e) {
+      console.error(e);
+      document.getElementById('lastUpdated').textContent = '取得エラー';
+    }
+  }
+
+  init();
+  setInterval(init, 5 * 60 * 1000);
+</script>
+</body>
+</html>
