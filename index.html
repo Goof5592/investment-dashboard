@@ -347,7 +347,6 @@
   }
 
   // --- ユーティリティ ---
-  const PROXY = 'https://corsproxy.io/?';
   let etfChart = null;
 
   function fmt(n)   { return Math.round(n).toLocaleString('ja-JP'); }
@@ -363,17 +362,26 @@
     el.innerHTML = `<span class="${cls}">${sign(change)}${fmtF(change)} (${sign(pct)}${fmtF(pct)}%)</span>`;
   }
 
-  // --- Yahoo Finance ---
+  // --- Yahoo Finance（プロキシ自動切替）---
+  const PROXIES = [
+    u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+    u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+    u => `https://thingproxy.freeboard.io/fetch/${u}`,
+    u => u,
+  ];
+
   async function fetchYahoo(symbol) {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=1mo`;
-    try {
-      const res = await fetch(PROXY + encodeURIComponent(url));
-      const json = await res.json();
-      return json.chart.result[0];
-    } catch (e) {
-      console.error('Yahoo error:', symbol, e);
-      return null;
+    for (const makeProxy of PROXIES) {
+      try {
+        const res = await fetch(makeProxy(url), { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) continue;
+        const json = await res.json();
+        if (json.chart?.result?.[0]) return json.chart.result[0];
+      } catch (e) { continue; }
     }
+    console.error('All proxies failed:', symbol);
+    return null;
   }
 
   async function fetchETF() {
@@ -504,7 +512,7 @@
     for (const { q, tag, label } of NEWS_TARGETS) {
       try {
         const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en&gl=US&ceid=US:en`;
-        const res  = await fetch(PROXY + encodeURIComponent(rssUrl));
+        const res  = await fetch(PROXIES[0](rssUrl), { signal: AbortSignal.timeout(8000) });
         const text = await res.text();
         const xml  = new DOMParser().parseFromString(text, 'text/xml');
         const items = [...xml.querySelectorAll('item')].slice(0, 3);
