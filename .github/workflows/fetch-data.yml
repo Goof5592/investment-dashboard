@@ -303,12 +303,41 @@ jobs:
           with open('pksha-data.json', 'w', encoding='utf-8') as f:
               json.dump(pksha_data, f, ensure_ascii=False)
           print("PKSHA data saved")
+
+          # ===== CEREBRAS (CBRS) NEWS =====
+          cbrs_news_queries = [
+              'Cerebras Systems CBRS',
+              'Cerebras AI chip',
+              'Cerebras wafer scale',
+          ]
+          cbrs_news = []
+          cbrs_seen = set()
+          cutoff_cbrs = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=60)
+          for query in cbrs_news_queries:
+              for item in fetch_news(query):
+                  if item['title'] not in cbrs_seen:
+                      if item.get('pub_ts'):
+                          pub_dt = datetime.datetime.fromtimestamp(item['pub_ts'], tz=datetime.timezone.utc)
+                          if pub_dt < cutoff_cbrs:
+                              continue
+                      cbrs_seen.add(item['title'])
+                      cbrs_news.append(item)
+          cbrs_news.sort(key=lambda x: x.get('pub_ts', 0), reverse=True)
+          cbrs_news = cbrs_news[:10]
+
+          cbrs_data = {
+              'updated': int(time.time()),
+              'news':    cbrs_news,
+          }
+          with open('cerebras-data.json', 'w', encoding='utf-8') as f:
+              json.dump(cbrs_data, f, ensure_ascii=False)
+          print("Cerebras data saved")
           PYEOF
 
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data.json re-data.json semi-data.json pksha-data.json
+          git add data.json re-data.json semi-data.json pksha-data.json cerebras-data.json
           git diff --staged --quiet || git commit -m "chore: update stock data [skip ci]"
           git push

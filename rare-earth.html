@@ -163,6 +163,23 @@
 
     .up      { color:var(--green); }
     .down    { color:var(--red); }
+
+    /* ── P&L mini box (三井海洋開発) ── */
+    .pl-mini { background:#0f1a2e; border:1px solid #1e3a5f; border-radius:8px; padding:8px 10px; min-width:110px; text-align:right; }
+    .pl-mini-row { display:flex; justify-content:space-between; gap:12px; font-size:0.68rem; margin-bottom:3px; }
+    .pl-mini-row:last-child { margin-bottom:0; }
+    .pl-mini-label { color:var(--muted); }
+    .pl-mini-val   { font-weight:600; }
+    .pl-mini-pnl   { margin-top:4px; padding-top:4px; border-top:1px solid #1e3a5f; font-size:0.75rem; font-weight:700; text-align:right; }
+
+    /* ── 設定カード (レアアース) ── */
+    .re-settings-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:14px; }
+    .re-settings-title { font-size:0.75rem; color:var(--muted); margin-bottom:10px; }
+    .re-settings-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px; font-size:0.8rem; }
+    .re-settings-row label { color:var(--muted); }
+    .re-settings-row input { background:#0f1117; border:1px solid var(--border); color:var(--text); border-radius:6px; padding:4px 8px; width:90px; font-size:0.8rem; }
+    .re-save-btn { background:var(--blue); color:white; border:none; border-radius:6px; padding:5px 12px; cursor:pointer; font-size:0.8rem; }
+    .re-save-msg { font-size:0.75rem; color:var(--green); }
     .neutral { color:var(--muted); }
 
     /* ── Buy/Sell Guide ── */
@@ -339,6 +356,20 @@
   </div>
 </div>
 
+<!-- 設定 -->
+<div class="section-label">⚙️ 保有株設定（三井海洋開発）</div>
+<div class="re-settings-card">
+  <div class="re-settings-title">約定後に購入単価を更新してください</div>
+  <div class="re-settings-row">
+    <label>購入単価（円）</label>
+    <input type="number" id="re6269Price" placeholder="15235">
+    <label>株数</label>
+    <input type="number" id="re6269Shares" placeholder="1">
+    <button class="re-save-btn" onclick="saveRe6269()">保存</button>
+    <span class="re-save-msg" id="re6269Msg"></span>
+  </div>
+</div>
+
 <footer>
   <a href="index.html" class="back-link">← NASDAQ</a>&nbsp;|&nbsp;
   <a href="semi.html" class="back-link">⚡ 半導体・AI →</a>&nbsp;|&nbsp;
@@ -349,6 +380,43 @@
 </footer>
 
 <script>
+  // ===== 三井海洋開発 保有設定 =====
+  const RE6269_DEFAULT_PRICE  = 15235;
+  const RE6269_DEFAULT_SHARES = 1;
+
+  function loadRe6269() {
+    return {
+      price:  parseFloat(localStorage.getItem('re6269Price')  || RE6269_DEFAULT_PRICE),
+      shares: parseInt(localStorage.getItem('re6269Shares') || RE6269_DEFAULT_SHARES),
+    };
+  }
+
+  function saveRe6269() {
+    const p = parseFloat(document.getElementById('re6269Price').value);
+    const s = parseInt(document.getElementById('re6269Shares').value);
+    if (p > 0) localStorage.setItem('re6269Price',  p);
+    if (s > 0) localStorage.setItem('re6269Shares', s);
+    const msg = document.getElementById('re6269Msg');
+    msg.textContent = '保存しました ✓';
+    setTimeout(() => msg.textContent = '', 2500);
+    init();
+  }
+
+  function buildPlMini(currentPrice) {
+    const { price, shares } = loadRe6269();
+    const cost  = price * shares;
+    const value = currentPrice * shares;
+    const pnl   = value - cost;
+    const pct   = (pnl / cost) * 100;
+    const cls   = pnl >= 0 ? 'up' : 'down';
+    const sign  = pnl >= 0 ? '+' : '';
+    return `<div class="pl-mini">
+      <div class="pl-mini-row"><span class="pl-mini-label">購入総額</span><span class="pl-mini-val">¥${cost.toLocaleString()}</span></div>
+      <div class="pl-mini-row"><span class="pl-mini-label">評価額</span><span class="pl-mini-val">¥${Math.round(value).toLocaleString()}</span></div>
+      <div class="pl-mini-pnl ${cls}">${sign}¥${Math.round(pnl).toLocaleString()}（${sign}${pct.toFixed(2)}%）</div>
+    </div>`;
+  }
+
   // 手動更新データ（最終更新: 2026年5月・SBI証券確認済み）
   const FUND_MANUAL = {
     '6269.T': { equity: 30.5, fiscalMonth: 12, outlook: '増収増益予想', outCls: 'out-up',   per: 15.38, pbr: 3.92, divYield: 1.53 },
@@ -477,12 +545,14 @@
     const sigCls = { buy:'signal-buy', watch:'signal-watch', wait:'signal-wait', load:'signal-load' }[signal.type];
     const perf30 = calc30dPerf(d);
 
+    const plBox = symbol === '6269.T' ? buildPlMini(d.price) : '';
     return `<div class="stock-card">
       <div class="stock-header">
         <div>
           <div class="stock-name">${meta.name}</div>
           <div class="stock-ticker">(${meta.ticker})</div>
         </div>
+        ${plBox}
       </div>
       <div class="stock-price">¥${fmt(d.price)}</div>
       <div class="stock-change ${cls(chg)}">${sign(chg)}${fmtF(chg)} (${sign(pct)}${fmtF(pct)}%)</div>
@@ -599,6 +669,11 @@
       document.getElementById('lastUpdated').textContent = '取得エラー';
     }
   }
+
+  // 設定フォーム初期値
+  const _s = loadRe6269();
+  document.getElementById('re6269Price').placeholder  = _s.price;
+  document.getElementById('re6269Shares').placeholder = _s.shares;
 
   init();
   setInterval(init, 5 * 60 * 1000);
