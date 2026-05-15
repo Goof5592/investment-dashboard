@@ -266,12 +266,49 @@ jobs:
           with open('semi-data.json', 'w', encoding='utf-8') as f:
               json.dump(semi_data, f, ensure_ascii=False)
           print("Semi data saved")
+
+          # ── PKSHA ダッシュボード用 ─────────────────────────
+          pksha_stock = fetch_yahoo('3993.T', range='1y', limit=260)
+          if pksha_stock:
+              pksha_stock['fund'] = fetch_fundamentals('3993.T')
+
+          pksha_news_queries = [
+              'PKSHA Technology 決算',
+              'PKSHAテクノロジー AI',
+              'PKSHA 3993 株',
+          ]
+          pksha_news = []
+          pksha_seen = set()
+          cutoff_pksha = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=60)
+          for query in pksha_news_queries:
+              for item in fetch_news(query, 5):
+                  if item['title'] not in pksha_seen:
+                      try:
+                          pub_dt = parsedate_to_datetime(item['pub'])
+                          if pub_dt < cutoff_pksha:
+                              continue
+                          item['pub_ts'] = int(pub_dt.timestamp())
+                      except Exception:
+                          item['pub_ts'] = 0
+                      pksha_seen.add(item['title'])
+                      pksha_news.append(item)
+          pksha_news.sort(key=lambda x: x.get('pub_ts', 0), reverse=True)
+          pksha_news = pksha_news[:10]
+
+          pksha_data = {
+              'updated': int(time.time()),
+              'stock':   pksha_stock,
+              'news':    pksha_news,
+          }
+          with open('pksha-data.json', 'w', encoding='utf-8') as f:
+              json.dump(pksha_data, f, ensure_ascii=False)
+          print("PKSHA data saved")
           PYEOF
 
       - name: Commit and push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data.json re-data.json semi-data.json
+          git add data.json re-data.json semi-data.json pksha-data.json
           git diff --staged --quiet || git commit -m "chore: update stock data [skip ci]"
           git push

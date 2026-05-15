@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PKSHA Technology 投資ダッシュボード</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --card: #1a1d2e;
+      --border: #2a2d3e;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+      --blue: #3b82f6;
+      --purple: #a855f7;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      padding: 16px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px; flex-wrap:wrap; gap:10px; }
+    h1 { font-size:1.25rem; font-weight:700; }
+    .subtitle { color:var(--muted); font-size:0.78rem; margin-top:3px; }
+    .header-right { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+    .refresh-btn { background:var(--blue); color:#fff; border:none; padding:8px 14px; border-radius:8px; cursor:pointer; font-size:0.82rem; }
+    .refresh-btn:hover { opacity:0.85; }
+    .last-updated { color:var(--muted); font-size:0.72rem; }
+
+    .section-label { font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px; padding-left:2px; }
+
+    .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; }
+
+    /* 損益サマリー */
+    .pnl-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:18px 20px; margin-bottom:14px; }
+    .pnl-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+    .pnl-item .label { font-size:0.72rem; color:var(--muted); margin-bottom:5px; }
+    .pnl-item .value { font-size:1.45rem; font-weight:700; }
+    .pnl-item .sub   { font-size:0.75rem; color:var(--muted); margin-top:3px; }
+
+    /* 価格カード */
+    .grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:14px; }
+    .card-title { font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px; }
+    .metric-value  { font-size:1.4rem; font-weight:700; margin-bottom:3px; }
+    .metric-change { font-size:0.82rem; }
+    .metric-sub    { font-size:0.72rem; color:var(--muted); margin-top:4px; }
+
+    /* チャート */
+    .chart-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:14px; }
+    .chart-wrapper { position:relative; height:200px; }
+
+    /* シグナル */
+    .signal {
+      display:inline-flex; align-items:center; gap:5px;
+      padding:4px 10px; border-radius:6px;
+      font-size:0.75rem; font-weight:600; margin-top:8px;
+    }
+    .signal-buy  { background:#052e16; color:#22c55e; border:1px solid #166534; }
+    .signal-watch{ background:#3b2a00; color:#fbbf24; border:1px solid #78350f; }
+    .signal-wait { background:#3b0a0a; color:#f87171; border:1px solid #7f1d1d; }
+
+    /* セグメント */
+    .segment-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px; }
+    .segment-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; }
+    .seg-name  { font-size:0.78rem; font-weight:600; margin-bottom:6px; }
+    .seg-rev   { font-size:1.1rem; font-weight:700; margin-bottom:3px; }
+    .seg-growth{ font-size:0.78rem; }
+    .seg-note  { font-size:0.68rem; color:var(--muted); margin-top:6px; line-height:1.5; }
+
+    /* ファンダメンタルズ */
+    .fund-grid { display:grid; grid-template-columns:1fr 1fr; gap:4px 8px; }
+    .fund-item { display:flex; justify-content:space-between; align-items:center; padding:3px 0; }
+    .fund-label{ font-size:0.68rem; color:var(--muted); }
+    .fund-val  { font-size:0.72rem; font-weight:600; }
+    .fv-good { color:#22c55e; }
+    .fv-ok   { color:#f59e0b; }
+    .fv-warn { color:#ef4444; }
+    .fv-na   { color:#4a5568; }
+
+    /* ニュース */
+    .news-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:14px; }
+    .news-item { border-bottom:1px solid var(--border); padding:10px 0; }
+    .news-item:first-child { padding-top:0; }
+    .news-item:last-child  { border-bottom:none; padding-bottom:0; }
+    .news-title-text { font-size:0.82rem; line-height:1.45; margin-bottom:3px; }
+    .news-title-text a { color:var(--text); text-decoration:none; }
+    .news-title-text a:hover { color:var(--blue); }
+    .news-date { font-size:0.7rem; color:var(--muted); }
+    .news-new  { display:inline-block; background:#052e16; color:#22c55e; border:1px solid #166534; font-size:0.65rem; font-weight:700; padding:1px 6px; border-radius:4px; margin-left:6px; vertical-align:middle; }
+    .news-empty{ color:var(--muted); font-size:0.82rem; padding:12px; text-align:center; }
+
+    /* 設定 */
+    .settings-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:14px; }
+    .settings-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px; }
+    .settings-row label { font-size:0.78rem; color:var(--muted); }
+    .settings-row input {
+      background:var(--bg); border:1px solid var(--border);
+      color:var(--text); padding:5px 10px;
+      border-radius:6px; font-size:0.83rem; width:100px;
+    }
+    .save-btn { background:#1e3a5f; color:#60a5fa; border:1px solid #2a4a7f; padding:5px 12px; border-radius:6px; cursor:pointer; font-size:0.78rem; }
+    .save-btn:hover { background:#2a4a7f; }
+    .save-msg { font-size:0.75rem; color:var(--green); }
+
+    .up      { color:var(--green); }
+    .down    { color:var(--red); }
+    .neutral { color:var(--muted); }
+
+    .loading { color:var(--muted); font-size:0.8rem; padding:12px; text-align:center; }
+
+    footer { text-align:center; color:var(--muted); font-size:0.68rem; padding:12px 0 24px; line-height:1.9; }
+    a.back-link { color:var(--blue); font-size:0.78rem; text-decoration:none; }
+
+    @media (max-width:600px) {
+      .pnl-grid     { grid-template-columns:1fr; gap:12px; }
+      .grid-2       { grid-template-columns:1fr; }
+      .segment-grid { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🤖 PKSHA Technology 投資ダッシュボード</h1>
+    <div class="subtitle">NISA成長枠 | (3993) PKSHAテクノロジー | 購入日 2026/05/15</div>
+  </div>
+  <div class="header-right">
+    <button class="refresh-btn" onclick="init()">↻ 更新</button>
+    <div class="last-updated" id="lastUpdated">—</div>
+  </div>
+</header>
+
+<!-- 損益サマリー -->
+<div class="pnl-card">
+  <div class="section-label">損益サマリー（NISA・非課税）</div>
+  <div class="pnl-grid">
+    <div class="pnl-item">
+      <div class="label">購入総額</div>
+      <div class="value" id="purchaseTotal">—</div>
+      <div class="sub"  id="purchaseDetail">—</div>
+    </div>
+    <div class="pnl-item">
+      <div class="label">現在評価額</div>
+      <div class="value" id="currentValue"><span class="neutral">—</span></div>
+      <div class="sub"  id="currentSub">取得中...</div>
+    </div>
+    <div class="pnl-item">
+      <div class="label">損益</div>
+      <div class="value" id="pnlValue"><span class="neutral">—</span></div>
+      <div class="sub"  id="pnlPct">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- 価格指標 -->
+<div class="grid-2" style="margin-bottom:14px;">
+  <div class="card">
+    <div class="card-title">(3993) 現在値</div>
+    <div class="metric-value" id="stockPrice">—</div>
+    <div class="metric-change" id="stockChange">取得中...</div>
+    <div class="metric-sub">PKSHAテクノロジー（東証グロース）</div>
+    <div id="signalBadge"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">30日騰落率</div>
+    <div class="metric-value" id="perf30">—</div>
+    <div class="metric-change neutral" id="perf30Sub">直近30日の値動き</div>
+    <div class="metric-sub" style="margin-top:8px;">1年高値: <span id="high52">—</span> / 安値: <span id="low52">—</span></div>
+  </div>
+</div>
+
+<!-- 1年チャート -->
+<div class="chart-card">
+  <div class="card-title" style="margin-bottom:12px;">(3993) 1年チャート ── 黄色点線が購入単価</div>
+  <div class="chart-wrapper">
+    <canvas id="stockChart"></canvas>
+  </div>
+</div>
+
+<!-- セグメント別業績（最新中間期） -->
+<div class="section-label" style="margin-top:4px;">📊 セグメント別業績 ── 2026年9月期 第2四半期（中間期）実績</div>
+<div class="segment-grid">
+  <div class="segment-card" style="border-color:#1d4ed8;">
+    <div class="seg-name" style="color:#60a5fa;">AI Research & Solution</div>
+    <div class="seg-rev">65.6億円</div>
+    <div class="seg-growth up">+31.0% YoY</div>
+    <div class="seg-note">生成AI活用で案件増。モビリティ事業も好調</div>
+  </div>
+  <div class="segment-card" style="border-color:#6d28d9;">
+    <div class="seg-name" style="color:#c084fc;">AI SaaS</div>
+    <div class="seg-rev">56.1億円</div>
+    <div class="seg-growth up">+32.4% YoY</div>
+    <div class="seg-note">自動応答エンジン中心に新規受注・ライセンス積み上げ</div>
+  </div>
+  <div class="segment-card" style="border-color:#0f766e;">
+    <div class="seg-name" style="color:#2dd4bf;">AI Powered Worker</div>
+    <div class="seg-rev">67.0億円</div>
+    <div class="seg-growth up">+638% YoY</div>
+    <div class="seg-note">サーキュレーション買収効果。AIエージェントで人材拡張</div>
+  </div>
+</div>
+
+<!-- ファンダメンタルズ -->
+<div class="section-label">📋 ファンダメンタルズ</div>
+<div class="card" style="margin-bottom:14px;">
+  <div class="fund-grid" id="fundGrid">
+    <div class="loading" style="grid-column:1/-1;">データ取得中...</div>
+  </div>
+  <div style="margin-top:8px; font-size:0.68rem; color:#4a5568;">
+    ※ 自己資本比率・決算月は有価証券報告書より手動確認 | 他はYahoo Finance自動取得
+  </div>
+</div>
+
+<!-- ニュース -->
+<div class="section-label">📡 PKSHA関連ニュース（自動収集 60日以内）</div>
+<div class="news-card">
+  <div id="newsContainer"><div class="loading">ニュース取得中...</div></div>
+</div>
+
+<!-- 設定 -->
+<div class="settings-card">
+  <div class="card-title">設定 ── 購入単価・株数の修正</div>
+  <div style="font-size:0.75rem; color:var(--muted); margin-top:6px;">
+    S株のため約定価格が確定したら購入単価を更新してください。
+  </div>
+  <div class="settings-row">
+    <label>購入単価（円）</label>
+    <input type="number" id="inputPrice" placeholder="2945">
+    <label>株数</label>
+    <input type="number" id="inputShares" placeholder="1">
+    <button class="save-btn" onclick="saveSettings()">保存して再計算</button>
+    <span class="save-msg" id="saveMsg"></span>
+  </div>
+</div>
+
+<!-- 判断指標メモ -->
+<div style="margin-top:4px;">
+  <div class="section-label">📋 ファンダメンタルズ判断基準メモ</div>
+  <div class="card" style="font-size:0.78rem; line-height:1.8;">
+    <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:6px 24px;">
+      <div><span style="color:var(--muted);">PER</span>　　<span class="fv-good">●15倍未満</span> <span class="fv-ok">●30倍未満</span> <span class="fv-warn">●30倍以上</span></div>
+      <div><span style="color:var(--muted);">PBR</span>　　<span class="fv-good">●1倍未満</span> <span class="fv-ok">●3倍未満</span> <span class="fv-warn">●3倍以上</span></div>
+      <div><span style="color:var(--muted);">ROE</span>　　<span class="fv-good">●15%超</span> <span class="fv-ok">●8%超</span> <span class="fv-warn">●8%以下</span></div>
+      <div><span style="color:var(--muted);">営業利益率</span>　<span class="fv-good">●12%超</span> <span class="fv-ok">●5%超</span> <span class="fv-warn">●5%以下</span></div>
+      <div><span style="color:var(--muted);">売上前期比</span>　<span class="fv-good">●+5%超</span> <span class="fv-ok">●0%以上</span> <span class="fv-warn">●マイナス成長</span></div>
+      <div><span style="color:var(--muted);">配当利回り</span>　<span class="fv-good">●3%超</span> <span class="fv-ok">●1%超</span> <span class="fv-na">●1%以下</span></div>
+      <div><span style="color:var(--muted);">自己資本比率</span>　<span class="fv-good">●50%超</span> <span class="fv-ok">●30%超</span> <span class="fv-warn">●30%以下</span></div>
+    </div>
+    <div style="margin-top:8px; font-size:0.68rem; color:#4a5568;">
+      ※ PKSHAはグロース株のため、PERは高くなりやすい。成長率（売上前期比・ROE）を重視して判断する
+    </div>
+  </div>
+</div>
+
+<footer style="margin-top:28px;">
+  <a href="index.html" class="back-link">← NASDAQ</a>&nbsp;|&nbsp;
+  <a href="rare-earth.html" class="back-link">🏔️ レアアース →</a>&nbsp;|&nbsp;
+  <a href="semi.html" class="back-link">⚡ 半導体・AI →</a>&nbsp;|&nbsp;
+  <a href="cerebras.html" class="back-link">🧠 Cerebras →</a><br><br>
+  株価データ: Yahoo Finance | ニュース: Google News（1時間ごと自動更新）<br>
+  ※ 投資は自己責任です。このページは情報提供のみで投資推奨ではありません。
+</footer>
+
+<script>
+  // 手動確認済みデータ（2026年5月・有価証券報告書より）
+  const FUND_MANUAL = {
+    equity: 66.4,
+    fiscalMonth: 9,
+    outlook: '通期据え置き（売上+60.8%・事業利益+29%予想）',
+    outCls: 'fv-ok',
+  };
+
+  const DEFAULT_PRICE  = 2945;
+  const DEFAULT_SHARES = 1;
+
+  function loadSettings() {
+    return {
+      price:  parseFloat(localStorage.getItem('pksha_price'))  || DEFAULT_PRICE,
+      shares: parseInt(localStorage.getItem('pksha_shares'))   || DEFAULT_SHARES,
+    };
+  }
+
+  function saveSettings() {
+    const p = parseFloat(document.getElementById('inputPrice').value);
+    const s = parseInt(document.getElementById('inputShares').value);
+    if (p > 0) localStorage.setItem('pksha_price',  p);
+    if (s > 0) localStorage.setItem('pksha_shares', s);
+    document.getElementById('saveMsg').textContent = '保存しました';
+    setTimeout(() => document.getElementById('saveMsg').textContent = '', 2000);
+    init();
+  }
+
+  function fmt(n)      { return Math.round(n).toLocaleString('ja-JP'); }
+  function fmtF(n,d=2) { return n.toLocaleString('ja-JP',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+  function sign(v)     { return v >= 0 ? '+' : ''; }
+  function cls(v)      { return v > 0 ? 'up' : v < 0 ? 'down' : 'neutral'; }
+
+  function fundColor(key, val) {
+    if (val == null || isNaN(val)) return 'fv-na';
+    switch(key) {
+      case 'per':       return val < 15 ? 'fv-good' : val < 30 ? 'fv-ok' : 'fv-warn';
+      case 'pbr':       return val < 1  ? 'fv-good' : val < 3  ? 'fv-ok' : 'fv-warn';
+      case 'roe':       return val > 0.15 ? 'fv-good' : val > 0.08 ? 'fv-ok' : 'fv-warn';
+      case 'opMargin':  return val > 0.12 ? 'fv-good' : val > 0.05 ? 'fv-ok' : 'fv-warn';
+      case 'revGrowth': return val > 0.05 ? 'fv-good' : val >= 0   ? 'fv-ok' : 'fv-warn';
+      case 'divYield':  return val > 3 ? 'fv-good' : val > 1 ? 'fv-ok' : 'fv-na';
+      case 'equity':    return val > 50 ? 'fv-good' : val > 30 ? 'fv-ok' : 'fv-warn';
+      default: return 'fv-ok';
+    }
+  }
+
+  function fmtFund(key, val) {
+    if (val == null || isNaN(val)) return '—';
+    switch(key) {
+      case 'per':       return `${val.toFixed(1)}倍`;
+      case 'pbr':       return `${val.toFixed(2)}倍`;
+      case 'roe':       return `${(val*100).toFixed(1)}%`;
+      case 'opMargin':  return `${(val*100).toFixed(1)}%`;
+      case 'revGrowth': return `${val>=0?'+':''}${(val*100).toFixed(1)}%`;
+      case 'divYield':  return val === 0 ? '0%' : `${val.toFixed(2)}%`;
+      case 'equity':    return `${val}%`;
+      default: return String(val);
+    }
+  }
+
+  function renderFund(fund) {
+    const f = fund || {};
+    const rows = [
+      ['PER',       fundColor('per',       f.per),       fmtFund('per',       f.per)],
+      ['PBR',       fundColor('pbr',       f.pbr),       fmtFund('pbr',       f.pbr)],
+      ['ROE',       fundColor('roe',       f.roe),       fmtFund('roe',       f.roe)],
+      ['営業利益率',  fundColor('opMargin',  f.opMargin),  fmtFund('opMargin',  f.opMargin)],
+      ['売上前期比',  fundColor('revGrowth', f.revGrowth), fmtFund('revGrowth', f.revGrowth)],
+      ['配当利回り',  fundColor('divYield',  f.divYield),  fmtFund('divYield',  f.divYield)],
+      ['自己資本比率', fundColor('equity',   FUND_MANUAL.equity), fmtFund('equity', FUND_MANUAL.equity)],
+      ['決算月',     'fv-ok',              `${FUND_MANUAL.fiscalMonth}月期`],
+    ];
+    const html = rows.map(([label, c, val]) =>
+      `<div class="fund-item"><span class="fund-label">${label}</span><span class="fund-val ${c}">${val}</span></div>`
+    ).join('');
+    document.getElementById('fundGrid').innerHTML = html +
+      `<div style="grid-column:1/-1; margin-top:5px; font-size:0.7rem; display:flex; justify-content:space-between;">
+        <span style="color:var(--muted);">次期予想</span>
+        <span class="${FUND_MANUAL.outCls}">${FUND_MANUAL.outlook}</span>
+      </div>`;
+  }
+
+  function calc30dPerf(d) {
+    if (!d || !d.closes || d.closes.length < 2) return null;
+    const base = d.closes.length >= 30 ? d.closes[d.closes.length - 30] : d.closes[0];
+    return ((d.price - base) / base) * 100;
+  }
+
+  let _chart = null;
+
+  function drawChart(d, purchasePrice) {
+    if (!d || !d.closes || d.closes.length < 2) return;
+    const canvas = document.getElementById('stockChart');
+    if (_chart) { _chart.destroy(); }
+    const first = d.closes[0];
+    const last  = d.closes[d.closes.length - 1];
+    const color = last >= first ? '#22c55e' : '#ef4444';
+    const labels = d.timestamps.map(ts => {
+      const dt = new Date(ts * 1000);
+      return `${dt.getMonth()+1}/${dt.getDate()}`;
+    });
+    _chart = new Chart(canvas, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          data: d.closes,
+          borderColor: color,
+          borderWidth: 1.5,
+          pointRadius: 0,
+          fill: true,
+          backgroundColor: color + '18',
+          tension: 0.3,
+        }]
+      },
+      options: {
+        animation: false,
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => `¥${Math.round(ctx.raw).toLocaleString('ja-JP')}` } },
+          annotation: purchasePrice ? {
+            annotations: {
+              purchaseLine: {
+                type: 'line',
+                yMin: purchasePrice,
+                yMax: purchasePrice,
+                borderColor: '#f59e0b',
+                borderWidth: 1.5,
+                borderDash: [4, 4],
+              }
+            }
+          } : {}
+        },
+        scales: {
+          x: { display: false },
+          y: { display: true, grace: '5%', ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#2a2d3e' } }
+        }
+      }
+    });
+  }
+
+  function renderNews(news) {
+    const container = document.getElementById('newsContainer');
+    if (!news || !news.length) {
+      container.innerHTML = '<div class="news-empty">ニュースを取得できませんでした</div>';
+      return;
+    }
+    const now = Date.now();
+    container.innerHTML = news.map(n => {
+      const pubTs = n.pub_ts ? n.pub_ts * 1000 : (n.pub ? new Date(n.pub).getTime() : 0);
+      const date  = pubTs ? new Date(pubTs).toLocaleDateString('ja-JP') : '';
+      const isNew = pubTs && (now - pubTs) < 7 * 24 * 60 * 60 * 1000;
+      return `<div class="news-item">
+        <div class="news-title-text">
+          <a href="${n.link}" target="_blank" rel="noopener">${n.title}</a>
+          ${isNew ? '<span class="news-new">NEW</span>' : ''}
+        </div>
+        <div class="news-date">${date}${n.source ? ' — ' + n.source : ''}</div>
+      </div>`;
+    }).join('');
+  }
+
+  async function init() {
+    document.getElementById('lastUpdated').textContent = '更新中...';
+    const { price: purchasePrice, shares } = loadSettings();
+
+    // 設定フォームに現在値を反映
+    document.getElementById('inputPrice').placeholder  = purchasePrice;
+    document.getElementById('inputShares').placeholder = shares;
+
+    // 購入情報表示
+    const total = purchasePrice * shares;
+    document.getElementById('purchaseTotal').textContent  = `¥${fmt(total)}`;
+    document.getElementById('purchaseDetail').textContent = `@${fmt(purchasePrice)}円 × ${shares}株`;
+
+    try {
+      const res  = await fetch(`pksha-data.json?t=${Date.now()}`);
+      const data = await res.json();
+
+      if (data.updated && data.updated > 0) {
+        const d = data.stock;
+
+        if (d && d.price) {
+          // 価格
+          document.getElementById('stockPrice').textContent = `¥${fmt(d.price)}`;
+          const chg = d.price - d.prevClose;
+          const pct = (chg / d.prevClose) * 100;
+          document.getElementById('stockChange').innerHTML =
+            `<span class="${cls(chg)}">${sign(chg)}${fmtF(chg)} (${sign(pct)}${fmtF(pct)}%)</span>`;
+
+          // 30日騰落
+          const perf30 = calc30dPerf(d);
+          if (perf30 !== null) {
+            document.getElementById('perf30').innerHTML =
+              `<span class="${cls(perf30)}">${sign(perf30)}${fmtF(perf30)}%</span>`;
+
+            // シグナル
+            let sigHtml = '';
+            if      (perf30 > 25)  sigHtml = `<span class="signal signal-wait">割高注意 (+${fmtF(perf30)}%)</span>`;
+            else if (perf30 < -10) sigHtml = `<span class="signal signal-watch">下落中 (${fmtF(perf30)}%)</span>`;
+            else                   sigHtml = `<span class="signal signal-buy">仕込み検討 (${sign(perf30)}${fmtF(perf30)}%)</span>`;
+            document.getElementById('signalBadge').innerHTML = sigHtml;
+          }
+
+          // 高値・安値
+          if (d.closes && d.closes.length) {
+            const hi = Math.max(...d.closes);
+            const lo = Math.min(...d.closes);
+            document.getElementById('high52').textContent = `¥${fmt(hi)}`;
+            document.getElementById('low52').textContent  = `¥${fmt(lo)}`;
+          }
+
+          // 損益
+          const currentVal = d.price * shares;
+          const pnl        = currentVal - total;
+          const pnlPct     = (pnl / total) * 100;
+          document.getElementById('currentValue').innerHTML =
+            `<span class="${cls(pnl)}">¥${fmt(currentVal)}</span>`;
+          document.getElementById('currentSub').textContent = `¥${fmt(d.price)} × ${shares}株`;
+          document.getElementById('pnlValue').innerHTML =
+            `<span class="${cls(pnl)}">${sign(pnl)}¥${fmt(Math.abs(pnl))}</span>`;
+          document.getElementById('pnlPct').innerHTML =
+            `<span class="${cls(pnlPct)}">${sign(pnlPct)}${fmtF(pnlPct)}%</span>`;
+
+          // チャート
+          drawChart(d, purchasePrice);
+
+          // ファンダメンタルズ
+          renderFund(d.fund);
+        }
+
+        // ニュース
+        renderNews(data.news || []);
+
+        const age    = Math.round((Date.now() - data.updated * 1000) / 60000);
+        const ageStr = age < 60 ? `${age}分前` : `${Math.round(age/60)}時間前`;
+        document.getElementById('lastUpdated').textContent =
+          `更新: ${new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}（データ: ${ageStr}）`;
+
+      } else {
+        document.getElementById('stockPrice').textContent  = 'データ準備中';
+        document.getElementById('lastUpdated').textContent = 'GitHub Actionsが初回実行されるまでお待ちください';
+      }
+    } catch(e) {
+      console.error(e);
+      document.getElementById('lastUpdated').textContent = '取得エラー';
+    }
+  }
+
+  init();
+  setInterval(init, 5 * 60 * 1000);
+</script>
+</body>
+</html>
