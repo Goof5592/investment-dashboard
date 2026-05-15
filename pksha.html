@@ -211,6 +211,96 @@
   </div>
 </div>
 
+<!-- 決算メモ -->
+<div class="section-label" style="margin-top:4px;">📝 決算メモ ── 健忘録（手動更新）</div>
+<div class="card" style="margin-bottom:14px; font-size:0.8rem;">
+
+  <!-- 通期予想 -->
+  <div style="margin-bottom:14px;">
+    <div class="card-title">2026年9月期 通期予想（据え置き）</div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:6px;">
+      <div style="background:#0f1117; border-radius:8px; padding:10px; text-align:center;">
+        <div style="color:var(--muted); font-size:0.68rem; margin-bottom:4px;">売上収益</div>
+        <div style="font-weight:700;">350億円</div>
+        <div class="up" style="font-size:0.72rem;">+60.8%</div>
+      </div>
+      <div style="background:#0f1117; border-radius:8px; padding:10px; text-align:center;">
+        <div style="color:var(--muted); font-size:0.68rem; margin-bottom:4px;">事業利益</div>
+        <div style="font-weight:700;">50億円</div>
+        <div class="up" style="font-size:0.72rem;">+29.0%</div>
+      </div>
+      <div style="background:#0f1117; border-radius:8px; padding:10px; text-align:center;">
+        <div style="color:var(--muted); font-size:0.68rem; margin-bottom:4px;">最終利益</div>
+        <div style="font-weight:700;">28.5億円</div>
+        <div class="up" style="font-size:0.72rem;">+7.3%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 四半期別実績テーブル -->
+  <div class="card-title">四半期別実績</div>
+  <div style="overflow-x:auto; margin-top:6px;">
+    <table style="width:100%; border-collapse:collapse; font-size:0.75rem;">
+      <thead>
+        <tr style="color:var(--muted); border-bottom:1px solid var(--border);">
+          <th style="text-align:left; padding:6px 8px;">期</th>
+          <th style="text-align:right; padding:6px 8px;">売上収益</th>
+          <th style="text-align:right; padding:6px 8px;">昨対</th>
+          <th style="text-align:right; padding:6px 8px;">事業利益</th>
+          <th style="text-align:right; padding:6px 8px;">昨対</th>
+          <th style="text-align:right; padding:6px 8px;">最終利益</th>
+          <th style="text-align:right; padding:6px 8px;">昨対</th>
+        </tr>
+      </thead>
+      <tbody id="earningsTable">
+        <!-- 2Q中間期（累計）-->
+        <tr style="border-bottom:1px solid var(--border);">
+          <td style="padding:7px 8px; font-weight:600;">2026年9月期 2Q<br><span style="color:var(--muted); font-weight:400; font-size:0.68rem;">中間期累計</span></td>
+          <td style="text-align:right; padding:7px 8px;">187.1億円</td>
+          <td style="text-align:right; padding:7px 8px;" class="up">+85.8%</td>
+          <td style="text-align:right; padding:7px 8px;">34.0億円</td>
+          <td style="text-align:right; padding:7px 8px;" class="up">+58.5%</td>
+          <td style="text-align:right; padding:7px 8px;">18.7億円</td>
+          <td style="text-align:right; padding:7px 8px;" class="down">▲11.2%</td>
+        </tr>
+        <!-- 3Q以降追加予定 -->
+        <tr>
+          <td style="padding:7px 8px; color:var(--muted);">2026年9月期 3Q</td>
+          <td colspan="6" style="text-align:center; padding:7px 8px; color:#4a5568;">2026年8月13日 発表予定</td>
+        </tr>
+        <tr>
+          <td style="padding:7px 8px; color:var(--muted);">2026年9月期 通期</td>
+          <td colspan="6" style="text-align:center; padding:7px 8px; color:#4a5568;">2026年11月12日 発表予定</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 定性メモ -->
+  <div style="margin-top:14px; border-top:1px solid var(--border); padding-top:12px;">
+    <div class="card-title" style="margin-bottom:8px;">定性メモ</div>
+    <ul style="list-style:none; display:flex; flex-direction:column; gap:6px;">
+      <li style="display:flex; gap:8px; font-size:0.75rem; line-height:1.6;">
+        <span style="color:#22c55e; flex-shrink:0;">✓</span>
+        <span><strong>本業は超好調。</strong>売上+85.8%・事業利益+58.5%。最終利益の表面上▲11.2%は前年の特殊益（Sapeet株売却益）の反動。除くと+61.9%。</span>
+      </li>
+      <li style="display:flex; gap:8px; font-size:0.75rem; line-height:1.6;">
+        <span style="color:#22c55e; flex-shrink:0;">✓</span>
+        <span><strong>AI Powered Workerが爆発的成長（+638%）。</strong>サーキュレーション買収効果。買収コストを除いた有機的成長はAI R&S+31%・AI SaaS+32%。</span>
+      </li>
+      <li style="display:flex; gap:8px; font-size:0.75rem; line-height:1.6;">
+        <span style="color:#f59e0b; flex-shrink:0;">△</span>
+        <span><strong>通期予想を据え置き（上方修正なし）。</strong>市場の失望売りで決算日-10.76%。ただし会社の保守的姿勢とも読める。</span>
+      </li>
+      <li style="display:flex; gap:8px; font-size:0.75rem; line-height:1.6;">
+        <span style="color:#60a5fa; flex-shrink:0;">→</span>
+        <span><strong>購入判断：</strong>決算後の下落で2,945円で1株購入（2026/05/15）。本業成長を評価し中長期保有方針。</span>
+      </li>
+    </ul>
+  </div>
+  <div style="margin-top:8px; font-size:0.65rem; color:#4a5568;">※ 最終更新: 2026年5月 / 2Q中間期決算短信より</div>
+</div>
+
 <!-- ファンダメンタルズ -->
 <div class="section-label">📋 ファンダメンタルズ</div>
 <div class="card" style="margin-bottom:14px;">
