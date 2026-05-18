@@ -760,24 +760,42 @@
   function setPreListedUI() {
     document.getElementById('currentPrice').innerHTML  = '<span class="neutral">—</span>';
     document.getElementById('ipoChange').innerHTML     = '<span class="neutral">—</span>';
-    document.getElementById('daysListed').textContent  = '0';
+    document.getElementById('daysListed').textContent  = Math.max(0, daysSinceIPO());
     document.getElementById('dayChange').innerHTML     = '<span class="neutral">—</span>';
     document.getElementById('dayChangePct').textContent = '—';
 
     const banner = document.getElementById('decisionBanner');
-    banner.className = 'decision-gray';
-    document.getElementById('decisionEmoji').textContent = '🕐';
-    document.getElementById('decisionLabel').textContent = 'まだ上場していません';
-    document.getElementById('decisionLabel').style.color = '#94a3b8';
-    document.getElementById('decisionReason').textContent =
-      '上場後に自動でデータを取得します。このページを毎日開いておくと、上場したその日に「様子見」または「今は買わない」に切り替わります。';
+    const days = daysSinceIPO();
 
-    document.getElementById('chk1Icon').textContent = '⏳';
-    document.getElementById('chk1Status').className = 'check-status status-ng';
-    document.getElementById('chk1Status').textContent = '⏳ 上場待ち（上場後にカウント開始）';
-    document.getElementById('chk2Icon').textContent = '⏳';
-    document.getElementById('chk2Status').className = 'check-status status-ng';
-    document.getElementById('chk2Status').textContent = '⏳ 上場後に自動判定します';
+    if (days > 0) {
+      // 上場済みだがデータ取得失敗
+      banner.className = 'decision-gray';
+      document.getElementById('decisionEmoji').textContent = '🔄';
+      document.getElementById('decisionLabel').textContent = '価格データ取得中...';
+      document.getElementById('decisionLabel').style.color = '#94a3b8';
+      document.getElementById('decisionReason').textContent =
+        `上場から ${days} 日経過しています。価格データの取得に失敗しました。しばらく待つか、再読み込みしてください。`;
+      document.getElementById('chk1Icon').textContent = '🔄';
+      document.getElementById('chk1Status').className = 'check-status status-ng';
+      document.getElementById('chk1Status').textContent = '🔄 データ取得中...';
+      document.getElementById('chk2Icon').textContent = '🔄';
+      document.getElementById('chk2Status').className = 'check-status status-ng';
+      document.getElementById('chk2Status').textContent = '🔄 データ取得中...';
+    } else {
+      // 本当に上場前
+      banner.className = 'decision-gray';
+      document.getElementById('decisionEmoji').textContent = '🕐';
+      document.getElementById('decisionLabel').textContent = 'まだ上場していません';
+      document.getElementById('decisionLabel').style.color = '#94a3b8';
+      document.getElementById('decisionReason').textContent =
+        '上場後に自動でデータを取得します。このページを毎日開いておくと、上場したその日に「様子見」または「今は買わない」に切り替わります。';
+      document.getElementById('chk1Icon').textContent = '⏳';
+      document.getElementById('chk1Status').className = 'check-status status-ng';
+      document.getElementById('chk1Status').textContent = '⏳ 上場待ち（上場後にカウント開始）';
+      document.getElementById('chk2Icon').textContent = '⏳';
+      document.getElementById('chk2Status').className = 'check-status status-ng';
+      document.getElementById('chk2Status').textContent = '⏳ 上場後に自動判定します';
+    }
   }
 
   // ===== SETTINGS =====
