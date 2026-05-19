@@ -835,23 +835,63 @@
     }).join('');
   }
 
-  async function fetchNews() {
-    try {
-      const res = await fetch('cerebras-data.json?_=' + Date.now());
-      if (!res.ok) throw new Error('fetch failed');
-      const data = await res.json();
-      renderNews(data.news || []);
-    } catch (e) {
-      document.getElementById('newsContainer').innerHTML =
-        '<div class="news-empty">ニュースデータを読み込めませんでした</div>';
+  // Apply stock data from cerebras-data.json (fetched server-side by GitHub Actions)
+  function applyStockData(stock) {
+    if (!stock || !stock.price) return false;
+
+    const price  = stock.price;
+    const prev   = stock.prevClose;
+    const chg    = prev ? price - prev : 0;
+    const pct    = prev ? (chg / prev) * 100 : 0;
+    const ipoChg = ((price - IPO_PRICE) / IPO_PRICE) * 100;
+    const days   = daysSinceIPO();
+
+    setIpoListed(price, days);
+
+    document.getElementById('currentPrice').textContent = `$${fmt(price)}`;
+    const ipoEl = document.getElementById('ipoChange');
+    ipoEl.textContent = fmtPct(ipoChg);
+    ipoEl.className = 'metric-value ' + (ipoChg > 20 ? 'warn' : ipoChg > 0 ? 'up' : 'down');
+    document.getElementById('daysListed').textContent = days;
+    const dcEl = document.getElementById('dayChange');
+    dcEl.textContent = prev ? ((chg >= 0 ? '+' : '') + `$${fmt(chg)}`) : '—';
+    dcEl.className = 'metric-value ' + (chg >= 0 ? 'up' : 'down');
+    document.getElementById('dayChangePct').textContent = prev ? fmtPct(pct) : '—';
+    document.getElementById('dayChangePct').className = 'metric-sub ' + (pct >= 0 ? 'up' : 'down');
+
+    updateDecision(price, days);
+    updateChecklist(price, days);
+    updateTimeline(days);
+
+    if (stock.timestamps && stock.closes) {
+      drawChart(stock.timestamps, stock.closes);
     }
+    return true;
   }
 
   // ===== MAIN =====
   async function init() {
     document.getElementById('lastUpdated').textContent = '更新中...';
-    await fetchPrice();
-    await fetchNews();
+
+    let jsonData = null;
+    try {
+      const res = await fetch('cerebras-data.json?_=' + Date.now());
+      if (res.ok) jsonData = await res.json();
+    } catch (e) { /* fallback below */ }
+
+    if (jsonData) {
+      renderNews(jsonData.news || []);
+      if (!applyStockData(jsonData.stock)) {
+        // stock missing in JSON — try CORS proxy as last resort
+        await fetchPrice();
+      }
+    } else {
+      // JSON itself unreachable — try CORS proxy
+      await fetchPrice();
+      document.getElementById('newsContainer').innerHTML =
+        '<div class="news-empty">ニュースデータを読み込めませんでした</div>';
+    }
+
     const now = new Date();
     document.getElementById('lastUpdated').textContent =
       `更新: ${now.toLocaleDateString('ja-JP')} ${now.toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'})}`;

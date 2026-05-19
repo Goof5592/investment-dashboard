@@ -325,8 +325,12 @@ jobs:
           cbrs_news.sort(key=lambda x: x.get('pub_ts', 0), reverse=True)
           cbrs_news = cbrs_news[:10]
 
+          # CBRS stock price
+          cbrs_stock = fetch_yahoo('CBRS', range='1mo', limit=30)
+
           cbrs_data = {
               'updated': int(time.time()),
+              'stock':   cbrs_stock,
               'news':    cbrs_news,
           }
           with open('cerebras-data.json', 'w', encoding='utf-8') as f:
