@@ -217,7 +217,7 @@
 <header>
   <div>
     <h1>🏔️ レアアース投資ダッシュボード</h1>
-    <div class="subtitle">国産レアアース × 脱中国依存テーマ | 10銘柄 3ランク管理</div>
+    <div class="subtitle">国産レアアース × 脱中国依存テーマ | 9銘柄 3ランク管理</div>
   </div>
   <div class="header-right">
     <button class="refresh-btn" onclick="init()">↻ 更新</button>
@@ -253,7 +253,7 @@
   <ul class="catalyst-list">
     <li class="catalyst-item">
       <span class="catalyst-dot dot-high"></span>
-      <span><strong>商業採掘の事業化決定</strong> ── 政府・民間企業が商業化プロジェクトを正式承認。三井海洋開発・東洋エンジが最大の恩恵を受ける</span>
+      <span><strong>商業採掘の事業化決定</strong> ── 政府・民間企業が商業化プロジェクトを正式承認。三井海洋開発が最大の恩恵を受ける</span>
     </li>
     <li class="catalyst-item">
       <span class="catalyst-dot dot-high"></span>
@@ -420,26 +420,24 @@
   // 手動更新データ（最終更新: 2026年5月・SBI証券確認済み）
   const FUND_MANUAL = {
     '6269.T': { equity: 30.5, fiscalMonth: 12, outlook: '増収増益予想', outCls: 'out-up',   per: 15.38, pbr: 3.92, divYield: 1.53 },
-    '6330.T': { equity: 15.7, fiscalMonth:  3, outlook: '赤字見込み',   outCls: 'out-down', per: null,  pbr: 2.13, divYield: 0    },
     '2768.T': { equity: 30.8, fiscalMonth:  3, outlook: '横ばい予想',   outCls: 'out-flat', per: 9.37,  pbr: 1.12, divYield: 3.07 },
     '8053.T': { equity: 35.0, fiscalMonth:  3, outlook: '増収見込み',   outCls: 'out-up',   per: 14.07, pbr: 1.91, divYield: 2.15 },
     '5016.T': { equity: 48.1, fiscalMonth:  3, outlook: '増収増益予想', outCls: 'out-up',   per: 47.43, pbr: 7.0,  divYield: 0.57 },
-    '4063.T': { equity: 79.2, fiscalMonth:  3, outlook: '増収増益予想', outCls: 'out-up',   per: 27.92, pbr: 3.13, divYield: 1.41 },
-    '6501.T': { equity: 43.3, fiscalMonth:  3, outlook: '増収増益予想', outCls: 'out-up',   per: 25.72, pbr: 3.33, divYield: 1.15 },
-    '6367.T': { equity: 55.5, fiscalMonth:  3, outlook: '増収増益予想', outCls: 'out-up',   per: 26.34, pbr: 2.37, divYield: 1.37 },
+    '5713.T': { equity: 42.5, fiscalMonth:  3, outlook: '増収増益予想', outCls: 'out-up',   per: 14.2,  pbr: 1.55, divYield: 2.52 },
+    '5706.T': { equity: 39.8, fiscalMonth:  3, outlook: '横ばい予想',   outCls: 'out-flat', per: 11.8,  pbr: 0.88, divYield: 1.62 },
+    '5711.T': { equity: 36.2, fiscalMonth:  3, outlook: '増収見込み',   outCls: 'out-up',   per: 14.5,  pbr: 0.82, divYield: 2.05 },
     '5714.T': { equity: 52.3, fiscalMonth:  3, outlook: '増収見込み',   outCls: 'out-up',   per: 11.22, pbr: 1.54, divYield: 3.07 },
     '5715.T': { equity: 49.7, fiscalMonth:  3, outlook: '横ばい予想',   outCls: 'out-flat', per: 11.89, pbr: 1.05, divYield: 1.9  },
   };
 
   const STOCK_META = {
     '6269.T': { name:'三井海洋開発',       ticker:'6269', tier:'high',   note:'揚泥技術の当事者。商業化決定で最大の恩恵。5〜10年の長期勝負' },
-    '6330.T': { name:'東洋エンジニアリング', ticker:'6330', tier:'high',   note:'海底資源処理プラントの設計。案件獲得ニュースに注目' },
     '2768.T': { name:'双日',              ticker:'2768', tier:'medium', note:'ライナス（豪）出資済みで既に収益化。本業も安定' },
     '8053.T': { name:'住友商事',           ticker:'8053', tier:'medium', note:'MPマテリアルズ（米）と独占契約。日米連携テーマに直結' },
     '5016.T': { name:'JX金属',            ticker:'5016', tier:'medium', note:'豪州鉱山の権益取得済み。調達多角化の本命' },
-    '4063.T': { name:'信越化学工業',        ticker:'4063', tier:'medium', note:'ネオジム磁石製造。超優良企業にレアアース上乗せ' },
-    '6501.T': { name:'日立製作所',          ticker:'6501', tier:'low',   note:'都市鉱山リサイクル技術。本業のDXが主力' },
-    '6367.T': { name:'ダイキン工業',        ticker:'6367', tier:'low',   note:'エアコン磁石リサイクル。世界トップ空調メーカー' },
+    '5713.T': { name:'住友金属鉱山',        ticker:'5713', tier:'medium', note:'ニッケル・金・銅の国内最大手。海外鉱山権益も豊富でレアメタル精錬に強み' },
+    '5706.T': { name:'三井金属鉱業',        ticker:'5706', tier:'medium', note:'亜鉛・銅精錬の老舗。電池材料・機能性材料でEV・半導体需要にも対応' },
+    '5711.T': { name:'三菱マテリアル',       ticker:'5711', tier:'medium', note:'非鉄金属・セメント・加工の総合素材メーカー。レアメタルリサイクルにも注力' },
     '5714.T': { name:'DOWAホールディングス', ticker:'5714', tier:'low',   note:'非鉄金属リサイクル精錬。地味だが着実な業績' },
     '5715.T': { name:'古河機械金属',        ticker:'5715', tier:'low',   note:'鉱山機械事業。レアアースへの恩恵は限定的' },
   };
