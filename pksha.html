@@ -58,7 +58,11 @@
 
     /* チャート */
     .chart-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:14px; }
-    .chart-wrapper { position:relative; height:200px; }
+    .chart-controls { display:flex; gap:8px; margin-bottom:12px; }
+    .chart-btn { background:#1e3a5f; color:#60a5fa; border:1px solid #2a4a7f; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:0.75rem; transition:all 0.2s; }
+    .chart-btn:hover { background:#2a4a7f; }
+    .chart-btn.active { background:#3b82f6; color:white; border-color:#3b82f6; }
+    .chart-wrapper { position:relative; height:320px; display:block; width:100%; }
 
     /* シグナル */
     .signal {
@@ -183,10 +187,13 @@
 
 <!-- 1年チャート -->
 <div class="chart-card">
-  <div class="card-title" style="margin-bottom:12px;">(3993) 1年チャート ── 黄色点線が購入単価</div>
-  <div class="chart-wrapper">
-    <canvas id="stockChart"></canvas>
+  <div class="card-title" style="margin-bottom:12px;">(3993) ローソク足チャート</div>
+  <div class="chart-controls">
+    <button class="chart-btn active" onclick="switchTimeframe('daily')">日足</button>
+    <button class="chart-btn" onclick="switchTimeframe('weekly')">週足</button>
+    <button class="chart-btn" onclick="switchTimeframe('monthly')">月足</button>
   </div>
+  <div class="chart-wrapper" id="stockChartContainer"></div>
 </div>
 
 <!-- セグメント別業績（最新中間期） -->
@@ -453,59 +460,39 @@
     return ((d.price - base) / base) * 100;
   }
 
-  let _chart = null;
+  let chartState = { chart: null, candlestickSeries: null, dailyData: [], currentTimeframe: 'daily' };
 
-  function drawChart(d, purchasePrice) {
-    if (!d || !d.closes || d.closes.length < 2) return;
-    const canvas = document.getElementById('stockChart');
-    if (_chart) { _chart.destroy(); }
-    const first = d.closes[0];
-    const last  = d.closes[d.closes.length - 1];
-    const color = last >= first ? '#22c55e' : '#ef4444';
-    const labels = d.timestamps.map(ts => {
-      const dt = new Date(ts * 1000);
-      return `${dt.getMonth()+1}/${dt.getDate()}`;
-    });
-    _chart = new Chart(canvas, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [{
-          data: d.closes,
-          borderColor: color,
-          borderWidth: 1.5,
-          pointRadius: 0,
-          fill: true,
-          backgroundColor: color + '18',
-          tension: 0.3,
-        }]
-      },
-      options: {
-        animation: false,
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: ctx => `¥${Math.round(ctx.raw).toLocaleString('ja-JP')}` } },
-          annotation: purchasePrice ? {
-            annotations: {
-              purchaseLine: {
-                type: 'line',
-                yMin: purchasePrice,
-                yMax: purchasePrice,
-                borderColor: '#f59e0b',
-                borderWidth: 1.5,
-                borderDash: [4, 4],
-              }
-            }
-          } : {}
-        },
-        scales: {
-          x: { display: false },
-          y: { display: true, grace: '5%', ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#2a2d3e' } }
-        }
-      }
-    });
+  function buildOHLCfromClosePrices(timestamps, closes) {
+    return closes.map((close, i) => ({
+      time: timestamps[i],
+      open: close, high: close, low: close, close: close
+    }));
+  }
+
+  function initChartWithData(ohlcData) {
+    if (!ohlcData || ohlcData.length === 0) return;
+    chartState.dailyData = ohlcData;
+    if (!chartState.chart) {
+      const result = initCandleChart('stockChartContainer');
+      if (!result) return;
+      chartState.chart = result.chart;
+      chartState.candlestickSeries = result.candlestickSeries;
+    }
+    renderCandleChart(chartState.candlestickSeries, chartState.chart, ohlcData);
+  }
+
+  function switchTimeframe(tf) {
+    chartState.currentTimeframe = tf;
+    document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+
+    let data = chartState.dailyData;
+    if (tf === 'weekly') data = dailyToWeekly(chartState.dailyData);
+    else if (tf === 'monthly') data = dailyToMonthly(chartState.dailyData);
+
+    if (chartState.candlestickSeries && chartState.chart) {
+      renderCandleChart(chartState.candlestickSeries, chartState.chart, data);
+    }
   }
 
   function renderNews(news) {
@@ -592,7 +579,10 @@
             `<span class="${cls(pnlPct)}">${sign(pnlPct)}${fmtF(pnlPct)}%</span>`;
 
           // チャート
-          drawChart(d, purchasePrice);
+          if (d.timestamps && d.closes) {
+            const ohlcData = buildOHLCfromClosePrices(d.timestamps, d.closes);
+            initChartWithData(ohlcData);
+          }
 
           // ファンダメンタルズ
           renderFund(d.fund);
