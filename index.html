@@ -98,9 +98,7 @@
 
     /* Chart */
     .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
-    .chart-wrapper { position: relative; height: 360px; }
-    .tradingview-widget-container { height: 100%; }
-    .tradingview-widget-container__widget { height: 100%; }
+    #etfChartContainer { width: 100%; height: 360px; display: block; }
 
     /* IPO status */
     .ipo-grid {
@@ -335,14 +333,16 @@
 
   function initChart() {
     const container = document.getElementById('etfChartContainer');
-    if (!container) return;
+    if (!container || !window.LightweightCharts) return;
+
+    const width = container.offsetWidth || 800;
 
     chart = LightweightCharts.createChart(container, {
       layout: {
         textColor: '#94a3b8',
         background: { color: 'transparent' }
       },
-      width: container.offsetWidth,
+      width: width,
       height: 360,
       timeScale: {
         timeVisible: true,
@@ -355,6 +355,9 @@
         hStyle: 0,
         vLines: { color: '#2a2d3e' },
         hLines: { color: '#2a2d3e' }
+      },
+      localization: {
+        dateFormat: 'yyyy-MM-dd'
       }
     });
 
@@ -364,12 +367,18 @@
       borderUpColor: '#22c55e',
       borderDownColor: '#ef4444',
       wickUpColor: '#22c55e',
-      wickDownColor: '#ef4444'
+      wickDownColor: '#ef4444',
+      scaleMargins: {
+        top: 0.15,
+        bottom: 0.15
+      }
     });
 
     chart.timeScale().fitContent();
     window.addEventListener('resize', () => {
-      if (chart) chart.applyOptions({ width: container.offsetWidth });
+      if (chart && container) {
+        chart.applyOptions({ width: container.offsetWidth });
+      }
     });
   }
 
@@ -562,9 +571,16 @@
 
   }
 
-  // ページ読み込み時にチャートを初期化
-  initChart();
-  fetchAll();
+  // DOM完全読み込み後にチャートを初期化
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      initChart();
+      fetchAll();
+    });
+  } else {
+    initChart();
+    fetchAll();
+  }
   setInterval(fetchAll, 5 * 60 * 1000);
 </script>
 </body>
