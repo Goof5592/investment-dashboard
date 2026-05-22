@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cerebras 購入判断ダッシュボード</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://unpkg.com/lightweight-charts@4/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="chart-utils.js"></script>
   <style>
     :root {
       --bg: #0f1117;
@@ -95,7 +96,11 @@
       margin-bottom: 16px;
     }
     .chart-title { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
-    .chart-wrapper { position: relative; height: 200px; }
+    .chart-controls { display: flex; gap: 8px; margin-bottom: 12px; }
+    .chart-btn { background: #1e3a5f; color: #60a5fa; border: 1px solid #2a4a7f; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; transition: all 0.2s; }
+    .chart-btn:hover { background: #2a4a7f; }
+    .chart-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; }
+    .chart-wrapper { position: relative; height: 320px; display: block; width: 100%; }
 
     /* ===== CHECKLIST ===== */
     .checklist-card {
@@ -347,10 +352,13 @@
 
 <!-- ===== CHART ===== -->
 <div class="chart-card">
-  <div class="chart-title">株価チャート（直近1ヶ月）── オレンジ点線がIPO基準価格</div>
-  <div class="chart-wrapper">
-    <canvas id="priceChart"></canvas>
+  <div class="chart-title">株価ローソク足チャート</div>
+  <div class="chart-controls">
+    <button class="chart-btn active" onclick="switchTimeframe('daily')">日足</button>
+    <button class="chart-btn" onclick="switchTimeframe('weekly')">週足</button>
+    <button class="chart-btn" onclick="switchTimeframe('monthly')">月足</button>
   </div>
+  <div class="chart-wrapper" id="priceChartContainer"></div>
 </div>
 
 <!-- ===== CHECKLIST ===== -->
@@ -520,7 +528,7 @@
     u => `https://thingproxy.freeboard.io/fetch/${u}`,
     u => u,
   ];
-  let priceChart = null;
+  let chartState = { chart: null, candlestickSeries: null, dailyData: [], currentTimeframe: 'daily' };
 
   function fmt(n)  { return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
   function fmtPct(n){ return (n >= 0 ? '+' : '') + n.toFixed(2) + '%'; }
@@ -612,58 +620,37 @@
   }
 
   // ===== CHART =====
-  function drawChart(timestamps, closes) {
-    const labels = timestamps.map(ts => {
-      const d = new Date(ts * 1000);
-      return `${d.getMonth()+1}/${d.getDate()}`;
-    });
-    if (priceChart) priceChart.destroy();
-    const ctx  = document.getElementById('priceChart').getContext('2d');
-    const grad = ctx.createLinearGradient(0, 0, 0, 200);
-    grad.addColorStop(0, 'rgba(139,92,246,0.4)');
-    grad.addColorStop(1, 'rgba(139,92,246,0.0)');
+  function buildOHLCfromClosePrices(timestamps, closes) {
+    return closes.map((close, i) => ({
+      time: timestamps[i],
+      open: close, high: close, low: close, close: close
+    }));
+  }
 
-    priceChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels,
-        datasets: [
-          {
-            label: 'Cerebras株価',
-            data: closes,
-            borderColor: '#a78bfa',
-            backgroundColor: grad,
-            borderWidth: 2,
-            pointRadius: 0,
-            fill: true,
-            tension: 0.3,
-            spanGaps: true,
-          },
-          {
-            label: `IPO基準価格 $${IPO_PRICE}`,
-            data: Array(labels.length).fill(IPO_PRICE),
-            borderColor: '#f59e0b',
-            borderWidth: 1.5,
-            borderDash: [5, 5],
-            pointRadius: 0,
-            fill: false,
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { labels: { color: '#94a3b8', font: { size: 11 } } },
-          tooltip: { callbacks: { label: c => `${c.dataset.label}: $${fmt(c.raw)}` } }
-        },
-        scales: {
-          x: { ticks: { color: '#94a3b8', font: { size: 10 }, maxTicksLimit: 8 }, grid: { color: '#2a2d3e' } },
-          y: { ticks: { color: '#94a3b8', font: { size: 10 }, callback: v => `$${fmt(v)}` }, grid: { color: '#2a2d3e' } }
-        }
-      }
-    });
+  function initChartWithData(ohlcData) {
+    if (!ohlcData || ohlcData.length === 0) return;
+    chartState.dailyData = ohlcData;
+    if (!chartState.chart) {
+      const result = initCandleChart('priceChartContainer');
+      if (!result) return;
+      chartState.chart = result.chart;
+      chartState.candlestickSeries = result.candlestickSeries;
+    }
+    renderCandleChart(chartState.candlestickSeries, chartState.chart, ohlcData);
+  }
+
+  function switchTimeframe(tf) {
+    chartState.currentTimeframe = tf;
+    document.querySelectorAll('.chart-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+
+    let data = chartState.dailyData;
+    if (tf === 'weekly') data = dailyToWeekly(chartState.dailyData);
+    else if (tf === 'monthly') data = dailyToMonthly(chartState.dailyData);
+
+    if (chartState.candlestickSeries && chartState.chart) {
+      renderCandleChart(chartState.candlestickSeries, chartState.chart, data);
+    }
   }
 
   // ===== IPO STATUS =====
@@ -747,7 +734,8 @@
       if (data.timestamp && data.indicators?.quote?.[0]?.close) {
         const ts = data.timestamp.slice(-30);
         const cl = data.indicators.quote[0].close.slice(-30);
-        drawChart(ts, cl);
+        const ohlcData = buildOHLCfromClosePrices(ts, cl);
+        initChartWithData(ohlcData);
       }
 
     } catch (e) {
@@ -864,7 +852,8 @@
     updateTimeline(days);
 
     if (stock.timestamps && stock.closes) {
-      drawChart(stock.timestamps, stock.closes);
+      const ohlcData = buildOHLCfromClosePrices(stock.timestamps, stock.closes);
+      initChartWithData(ohlcData);
     }
     return true;
   }

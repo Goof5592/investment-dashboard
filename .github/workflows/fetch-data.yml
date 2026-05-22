@@ -179,7 +179,7 @@ jobs:
 
           stocks = {}
           for name, symbol, tier in RE_STOCKS:
-              d = fetch_yahoo(symbol, range='1y', limit=260)
+              d = fetch_yahoo(symbol, range='1y', limit=260, include_ohlc=True)
               if d:
                   d['name'] = name
                   d['tier'] = tier
@@ -245,7 +245,7 @@ jobs:
 
           semi_stocks = {}
           for name, symbol, group in SEMI_STOCKS:
-              d = fetch_yahoo(symbol, range='1y', limit=260)
+              d = fetch_yahoo(symbol, range='1y', limit=260, include_ohlc=True)
               if d:
                   d['name']  = name
                   d['group'] = group
@@ -295,7 +295,7 @@ jobs:
           print("Semi data saved")
 
           # ── PKSHA ダッシュボード用 ─────────────────────────
-          pksha_stock = fetch_yahoo('3993.T', range='1y', limit=260)
+          pksha_stock = fetch_yahoo('3993.T', range='1y', limit=260, include_ohlc=True)
           if pksha_stock:
               pksha_stock['fund'] = fetch_fundamentals('3993.T')
 
