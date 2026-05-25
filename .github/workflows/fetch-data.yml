@@ -240,6 +240,7 @@ jobs:
               ('京セラ',              '6971.T', 'related'),
               ('THK',                 '6481.T', 'related'),
               ('ブロードリーフ',        '3673.T', 'related'),
+              ('川崎重工業',           '7012.T', 'related'),
           ]
 
           semi_stocks = {}
@@ -265,6 +266,7 @@ jobs:
               ('京セラ 株 決算',            '6971.T'),
               ('THK 株 直動',              '6481.T'),
               ('ブロードリーフ 株',          '3673.T'),
+              ('川崎重工業 フィジカルAI',    '7012.T'),
           ]
 
           cutoff_semi = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=60)
