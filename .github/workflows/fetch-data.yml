@@ -2,7 +2,7 @@ name: Fetch Stock Data
 
 on:
   schedule:
-    - cron: '0 * * * *'   # 毎時0分に自動実行
+    - cron: '0,30 * * * *'   # 30分ごとに自動実行
   workflow_dispatch:        # 手動実行も可能
 
 permissions:
