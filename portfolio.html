@@ -29,8 +29,15 @@
     header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px; flex-wrap:wrap; gap:10px; }
     h1 { font-size:1.25rem; font-weight:700; }
     .subtitle { color:var(--muted); font-size:0.78rem; margin-top:3px; }
+    .header-right { display:flex; flex-direction:column; align-items:flex-end; gap:6px; }
+    .btn-row { display:flex; gap:8px; }
     .refresh-btn { background:var(--blue); color:#fff; border:none; padding:8px 14px; border-radius:8px; cursor:pointer; font-size:0.82rem; }
-    .last-updated { color:var(--muted); font-size:0.72rem; margin-top:4px; text-align:right; }
+    .refresh-btn:hover { opacity:0.85; }
+    .trigger-btn { background:#16a34a; color:#fff; border:none; padding:8px 14px; border-radius:8px; cursor:pointer; font-size:0.82rem; }
+    .trigger-btn:hover { opacity:0.85; }
+    .trigger-btn:disabled { opacity:0.5; cursor:not-allowed; }
+    .pat-link { color:var(--muted); font-size:0.68rem; text-decoration:underline; cursor:pointer; text-align:right; }
+    .last-updated { color:var(--muted); font-size:0.72rem; margin-top:0; text-align:right; }
 
     /* ── 損益サマリー ── */
     .summary-card {
@@ -139,9 +146,13 @@
     <h1>📊 保有株ポートフォリオ</h1>
     <div class="subtitle">2840 · 三井海洋開発 · PKSHA · フジクラ</div>
   </div>
-  <div>
-    <button class="refresh-btn" onclick="init()">↻ 更新</button>
+  <div class="header-right">
+    <div class="btn-row">
+      <button class="trigger-btn" id="triggerBtn" onclick="triggerUpdate()">☁️ データ更新</button>
+      <button class="refresh-btn" onclick="init()">↻ 再読込</button>
+    </div>
     <div class="last-updated" id="lastUpdated">—</div>
+    <span class="pat-link" onclick="resetPat()">🔑 PAT設定</span>
   </div>
 </header>
 
@@ -206,6 +217,50 @@
 </footer>
 
 <script>
+  // ===== GitHub Actions トリガー =====
+  async function triggerUpdate() {
+    let token = localStorage.getItem('gh_pat');
+    if (!token) {
+      token = prompt('GitHub PAT（workflowスコープ）を入力:\nhttps://github.com/settings/tokens/new');
+      if (!token) return;
+      localStorage.setItem('gh_pat', token.trim());
+    }
+    const btn = document.getElementById('triggerBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ 更新中...';
+    try {
+      const res = await fetch(
+        'https://api.github.com/repos/Goof5592/investment-dashboard/actions/workflows/fetch-data.yml/dispatches',
+        {
+          method: 'POST',
+          headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github.v3+json' },
+          body: JSON.stringify({ ref: 'main' })
+        }
+      );
+      if (res.status === 204) {
+        btn.textContent = '✓ 約1分後に反映';
+        setTimeout(() => { btn.disabled = false; btn.textContent = '☁️ データ更新'; }, 60000);
+        setTimeout(() => init(), 75000); // 75秒後に自動で再読込
+      } else if (res.status === 401) {
+        localStorage.removeItem('gh_pat');
+        alert('PATが無効または期限切れです。再入力してください。');
+        btn.disabled = false; btn.textContent = '☁️ データ更新';
+      } else {
+        alert(`エラー: ${res.status}`);
+        btn.disabled = false; btn.textContent = '☁️ データ更新';
+      }
+    } catch(e) {
+      alert('ネットワークエラー');
+      btn.disabled = false; btn.textContent = '☁️ データ更新';
+    }
+  }
+
+  function resetPat() {
+    const cur = localStorage.getItem('gh_pat') ? '設定済み（変更する場合は新しいトークンを入力）' : '未設定';
+    const t = prompt(`PAT ${cur}:`);
+    if (t) localStorage.setItem('gh_pat', t.trim());
+  }
+
   // ===== 保有設定 =====
   const HOLDINGS_DEF = [
     { key: '2840',  name: '2840（NASDAQインデックス）', ticker: '2840',  defaultPrice: 2647, defaultShares: 37,  account: 'NISA' },
