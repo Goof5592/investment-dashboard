@@ -263,24 +263,40 @@
 
   // ===== 保有設定 =====
   const HOLDINGS_DEF = [
-    { key: '2840',  name: '2840（NASDAQインデックス）', ticker: '2840',  defaultPrice: 2647, defaultShares: 37,  account: 'NISA' },
-    { key: '6269T', name: '三井海洋開発',               ticker: '6269',  defaultPrice: 0,    defaultShares: 1,   account: 'NISA' },
-    { key: '3993T', name: 'PKSHAテクノロジー',          ticker: '3993',  defaultPrice: 0,    defaultShares: 1,   account: '特定' },
-    { key: '5803T', name: 'フジクラ',                   ticker: '5803',  defaultPrice: 5550, defaultShares: 2,   account: '特定' },
+    { key: '2840',  name: '2840 ETF（NASDAQインデックス）', ticker: '2840',  defaultPrice: 2647, defaultShares: 37,  account: 'NISA', type: 'etf' },
+    { key: 'sbi',   name: 'SBI NASDAQ100投信',              ticker: '2840',  defaultPrice: 2806, defaultShares: 0,   account: 'NISA', type: 'fund', fundInvested: 12000 },
+    { key: '6269T', name: '三井海洋開発',                    ticker: '6269',  defaultPrice: 0,    defaultShares: 1,   account: 'NISA', type: 'stock' },
+    { key: '3993T', name: 'PKSHAテクノロジー',               ticker: '3993',  defaultPrice: 0,    defaultShares: 1,   account: '特定', type: 'stock' },
+    { key: '5803T', name: 'フジクラ',                        ticker: '5803',  defaultPrice: 5550, defaultShares: 2,   account: '特定', type: 'stock' },
   ];
 
   function loadSetting(key) {
+    const def = HOLDINGS_DEF.find(h=>h.key===key);
+    if (def?.type === 'fund') {
+      return {
+        price:        parseFloat(localStorage.getItem(`pf_${key}_price`)    || def.defaultPrice),
+        fundInvested: parseFloat(localStorage.getItem(`pf_${key}_invested`) || def.fundInvested),
+        shares: 0,
+      };
+    }
     return {
-      price:  parseFloat(localStorage.getItem(`pf_${key}_price`)  || HOLDINGS_DEF.find(h=>h.key===key).defaultPrice),
-      shares: parseInt (localStorage.getItem(`pf_${key}_shares`) || HOLDINGS_DEF.find(h=>h.key===key).defaultShares),
+      price:  parseFloat(localStorage.getItem(`pf_${key}_price`)  || def.defaultPrice),
+      shares: parseInt (localStorage.getItem(`pf_${key}_shares`) || def.defaultShares),
     };
   }
 
   function saveSetting(key) {
+    const def = HOLDINGS_DEF.find(h=>h.key===key);
     const p = parseFloat(document.getElementById(`pf_${key}_price`).value);
-    const s = parseInt(document.getElementById(`pf_${key}_shares`).value);
-    if (p > 0) localStorage.setItem(`pf_${key}_price`,  p);
-    if (s > 0) localStorage.setItem(`pf_${key}_shares`, s);
+    if (def?.type === 'fund') {
+      const inv = parseFloat(document.getElementById(`pf_${key}_invested`).value);
+      if (p   > 0) localStorage.setItem(`pf_${key}_price`,    p);
+      if (inv > 0) localStorage.setItem(`pf_${key}_invested`, inv);
+    } else {
+      const s = parseInt(document.getElementById(`pf_${key}_shares`).value);
+      if (p > 0) localStorage.setItem(`pf_${key}_price`,  p);
+      if (s > 0) localStorage.setItem(`pf_${key}_shares`, s);
+    }
     const msg = document.getElementById(`pf_${key}_msg`);
     msg.textContent = '保存 ✓';
     setTimeout(() => msg.textContent = '', 2000);
@@ -324,9 +340,8 @@
 
   // ===== カード描画 =====
   function buildHoldingCard(def, stockData) {
-    const { key, name, ticker, account } = def;
-    const { price, shares } = loadSetting(key);
-    const cost  = price * shares;
+    const { key, name, ticker, account, type } = def;
+    const setting = loadSetting(key);
     const id = `chart_${key}`;
 
     if (!stockData || !stockData.price) {
@@ -338,11 +353,40 @@
     }
 
     const currentPrice = stockData.price;
-    const chg  = currentPrice - stockData.prevClose;
-    const pct  = (chg / stockData.prevClose) * 100;
-    const value = currentPrice * shares;
-    const pnl   = value - cost;
-    const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0;
+    const chg = currentPrice - stockData.prevClose;
+    const pct = (chg / stockData.prevClose) * 100;
+
+    // 投信の場合：2840価格変動から評価額を推定
+    if (type === 'fund') {
+      const refPrice    = setting.price;       // 購入時の2840価格
+      const invested    = setting.fundInvested;
+      const fundValue   = refPrice > 0 ? invested * (currentPrice / refPrice) : invested;
+      const fundPnl     = fundValue - invested;
+      const fundPnlPct  = invested > 0 ? (fundPnl / invested) * 100 : 0;
+      return `<div class="holding-card">
+        <div class="holding-header">
+          <div>
+            <div class="holding-name">${name}</div>
+            <div class="holding-ticker">NISA・成長投資枠 | 投資信託</div>
+          </div>
+        </div>
+        <div class="holding-price" style="font-size:1rem;">基準: 2840連動</div>
+        <div class="holding-change ${cls(chg)}">${sign(chg)}${fmtF(chg)} (${sign(pct)}${fmtF(pct)}%)</div>
+        <div class="chart-wrap" id="${id}"></div>
+        <div class="pnl-box">
+          <div class="pnl-row"><span class="pnl-label">投資額</span><span class="pnl-val">¥${fmt(invested)}</span></div>
+          <div class="pnl-row"><span class="pnl-label">現在評価額（概算）</span><span class="pnl-val">¥${fmt(fundValue)}</span></div>
+          <div class="pnl-total ${cls(fundPnl)}">${sign(fundPnl)}¥${fmt(fundPnl)}（${sign(fundPnlPct)}${fmtF(fundPnlPct)}%）</div>
+        </div>
+      </div>`;
+    }
+
+    // 通常株・ETF
+    const { price, shares } = setting;
+    const cost    = price * shares;
+    const value   = currentPrice * shares;
+    const pnl     = value - cost;
+    const pnlPct  = cost > 0 ? (pnl / cost) * 100 : 0;
 
     return `<div class="holding-card">
       <div class="holding-header">
@@ -365,8 +409,23 @@
 
   // ===== 設定フォーム =====
   function buildSettingsCard(def) {
-    const { key, name } = def;
+    const { key, name, type } = def;
     const s = loadSetting(key);
+    if (type === 'fund') {
+      return `<div class="settings-card">
+        <div class="settings-title">${name}</div>
+        <div class="settings-row">
+          <label>投資額（円）</label>
+          <input type="number" id="pf_${key}_invested" value="${s.fundInvested}" placeholder="12000">
+        </div>
+        <div class="settings-row">
+          <label>購入時の2840価格</label>
+          <input type="number" id="pf_${key}_price" value="${s.price > 0 ? s.price : ''}" placeholder="例: 2806">
+          <button class="save-btn" onclick="saveSetting('${key}')">保存</button>
+          <span class="save-msg" id="pf_${key}_msg"></span>
+        </div>
+      </div>`;
+    }
     return `<div class="settings-card">
       <div class="settings-title">${name}</div>
       <div class="settings-row">
@@ -398,6 +457,7 @@
       // 各銘柄データ
       const stockMap = {
         '2840':  dataRes.etf,
+        'sbi':   dataRes.etf,  // SBI投信は2840と同じ指数を追跡
         '6269T': reRes.stocks?.['6269.T'],
         '3993T': pkshaRes.stock,
         '5803T': semiRes.stocks?.['5803.T'],
@@ -444,9 +504,16 @@
       HOLDINGS_DEF.forEach(def => {
         const s = loadSetting(def.key);
         const d = stockMap[def.key];
-        if (s.price > 0 && d?.price) {
-          totalCost  += s.price * s.shares;
-          totalValue += d.price * s.shares;
+        if (def.type === 'fund') {
+          if (s.fundInvested > 0 && d?.price && s.price > 0) {
+            totalCost  += s.fundInvested;
+            totalValue += s.fundInvested * (d.price / s.price);
+          }
+        } else {
+          if (s.price > 0 && d?.price) {
+            totalCost  += s.price * s.shares;
+            totalValue += d.price * s.shares;
+          }
         }
       });
       const totalPnl = totalValue - totalCost;

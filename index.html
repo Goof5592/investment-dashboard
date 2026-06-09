@@ -211,7 +211,7 @@
 <header>
   <div>
     <h1>📈 NASDAQ 投資ダッシュボード</h1>
-    <div class="subtitle">NISA成長枠 | (2840) iFナス100H無 × 37株 | 購入日 2026/05/11</div>
+    <div class="subtitle">NISA成長枠 | (2840) ETF × 37株 ＋ SBI NASDAQ100投信 ¥12,000</div>
   </div>
   <div class="header-right">
     <div class="btn-row">
@@ -241,6 +241,28 @@
       <div class="label">損益</div>
       <div class="value" id="pnlValue"><span class="neutral">—</span></div>
       <div class="sub" id="pnlPct">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- SBI NASDAQ100 投信 損益サマリー -->
+<div class="pnl-card" style="margin-top:10px;">
+  <div class="section-label">SBI NASDAQ100インデックス・ファンド（NISA・成長投資枠）</div>
+  <div class="pnl-grid">
+    <div class="pnl-item">
+      <div class="label">投資額</div>
+      <div class="value" id="fundInvestedDisplay">¥12,000</div>
+      <div class="sub" id="fundDetail">11,496口 | 購入 2026/06/09</div>
+    </div>
+    <div class="pnl-item">
+      <div class="label">現在評価額（概算）</div>
+      <div class="value" id="fundCurrentValue"><span class="neutral">—</span></div>
+      <div class="sub" id="fundCurrentSub">2840連動で推定</div>
+    </div>
+    <div class="pnl-item">
+      <div class="label">損益（概算）</div>
+      <div class="value" id="fundPnlValue"><span class="neutral">—</span></div>
+      <div class="sub" id="fundPnlPct">—</div>
     </div>
   </div>
 </div>
@@ -318,15 +340,23 @@
 <div class="settings-card">
   <div class="card-title">設定 ── 購入単価の修正</div>
   <div style="font-size:0.75rem; color:var(--muted); margin-top:6px;">
-    成行注文のため、実際の約定価格が3,097円と異なった場合はここで修正できます。
+    成行注文のため、実際の約定価格が異なった場合はここで修正できます。
   </div>
   <div class="settings-row">
-    <label>購入単価（円）</label>
+    <label>2840 購入単価（円）</label>
     <input type="number" id="inputPrice" placeholder="2647">
     <label>株数</label>
     <input type="number" id="inputShares" placeholder="37">
     <button class="save-btn" onclick="saveSettings()">保存して再計算</button>
     <span class="save-msg" id="saveMsg"></span>
+  </div>
+  <div class="settings-row" style="margin-top:10px;">
+    <label>投信 投資額（円）</label>
+    <input type="number" id="inputFundInvested" placeholder="12000">
+    <label>購入時の2840価格</label>
+    <input type="number" id="inputFundRefPrice" placeholder="2806">
+    <button class="save-btn" onclick="saveFundSettings()">保存</button>
+    <span class="save-msg" id="saveFundMsg"></span>
   </div>
 </div>
 
@@ -412,8 +442,30 @@
   let SHARES         = parseInt(localStorage.getItem('shares') || '37');
   let PURCHASE_TOTAL = PURCHASE_PRICE * SHARES;
 
+  // SBI投信設定
+  let FUND_INVESTED   = parseFloat(localStorage.getItem('fund_invested')   || '12000');
+  let FUND_REF_PRICE  = parseFloat(localStorage.getItem('fund_ref_price')  || '2806'); // 購入時の2840価格
+
+  function initFundSettings() {
+    document.getElementById('inputFundInvested').value  = FUND_INVESTED;
+    document.getElementById('inputFundRefPrice').value  = FUND_REF_PRICE;
+  }
+
+  function saveFundSettings() {
+    const inv = parseFloat(document.getElementById('inputFundInvested').value);
+    const ref = parseFloat(document.getElementById('inputFundRefPrice').value);
+    if (inv > 0) { FUND_INVESTED  = inv; localStorage.setItem('fund_invested',  inv); }
+    if (ref > 0) { FUND_REF_PRICE = ref; localStorage.setItem('fund_ref_price', ref); }
+    const msg = document.getElementById('saveFundMsg');
+    msg.textContent = '保存 ✓';
+    setTimeout(() => msg.textContent = '', 2000);
+    document.getElementById('fundInvestedDisplay').textContent = '¥' + fmt(FUND_INVESTED);
+    fetchAll();
+  }
+
   document.getElementById('inputPrice').value  = PURCHASE_PRICE;
   document.getElementById('inputShares').value = SHARES;
+  initFundSettings();
   // ページ読み込み時に購入総額表示を localStorage の値で更新
   document.getElementById('purchaseTotalDisplay').textContent = '¥' + Math.round(PURCHASE_TOTAL).toLocaleString('ja-JP');
   document.getElementById('purchaseDetail').textContent = `@${Math.round(PURCHASE_PRICE).toLocaleString('ja-JP')}円 × ${SHARES}株`;
@@ -493,6 +545,18 @@
     if (d.ohlc && d.ohlc.length > 0) {
       if (!chart) initChart();
       renderChart(d.ohlc);
+    }
+
+    // SBI投信 評価額計算（2840価格変動に連動して近似）
+    if (FUND_REF_PRICE > 0 && FUND_INVESTED > 0) {
+      const fundCV  = FUND_INVESTED * (price / FUND_REF_PRICE);
+      const fundPnl = fundCV - FUND_INVESTED;
+      const fundPct = (fundPnl / FUND_INVESTED) * 100;
+      const fundCls = colorClass(fundPnl);
+      document.getElementById('fundCurrentValue').innerHTML = `¥${fmt(fundCV)}`;
+      document.getElementById('fundCurrentSub').textContent = `@${fmt(price)}円基準で推定`;
+      document.getElementById('fundPnlValue').innerHTML     = `<span class="${fundCls}">${sign(fundPnl)}¥${fmt(fundPnl)}</span>`;
+      document.getElementById('fundPnlPct').innerHTML       = `<span class="${fundCls}">${sign(fundPct)}${fmtF(fundPct)}%</span>`;
     }
   }
 
