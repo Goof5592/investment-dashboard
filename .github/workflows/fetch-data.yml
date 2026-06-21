@@ -155,6 +155,7 @@ jobs:
           nasdaq = {
               'updated': int(time.time()),
               'etf':    fetch_yahoo('2840.T', include_ohlc=True),
+              'sp500':  fetch_yahoo('2558.T', include_ohlc=True),
               'ndx':    fetch_yahoo('^NDX'),
               'usdjpy': fetch_yahoo('USDJPY=X'),
               'news':   ipo_news,
