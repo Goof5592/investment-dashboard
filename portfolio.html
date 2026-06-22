@@ -265,14 +265,16 @@
   const HOLDINGS_DEF = [
     { key: '2840',  name: '2840 ETF（NASDAQインデックス）', ticker: '2840', defaultPrice: 2647, defaultShares: 37, account: 'NISA', type: 'etf' },
     { key: 'sbi',   name: 'SBI NASDAQ100投信', ticker: '2840', account: 'NISA成長枠', type: 'fund', proxyTicker: '2840',
+      navScale: 10439 / 2738,  // SBI基準価額 ÷ 2840価格（06/09時点: 12000/11496*10000 ÷ 2738）
       defaultTranches: [
-        { invested: 12000,   refPrice: 2738, label: '06/09 ¥12,000（現金）' },
-        { invested: 12000,   refPrice: 2680, label: '06/10 ¥12,000（Vポイント）' },
-        { invested: 75816,   refPrice: 0,    label: '06/16 ¥75,816（現金）' },
-        { invested: 1850000, refPrice: 0,    label: '06/23 ¥1,850,000（現金・約定済）' },
+        { invested: 12000,   refPrice: 10439, label: '06/09 ¥12,000（現金）' },
+        { invested: 12000,   refPrice: 0,     label: '06/10 ¥12,000（Vポイント）' },
+        { invested: 75816,   refPrice: 0,     label: '06/16 ¥75,816（現金）' },
+        { invested: 1850000, refPrice: 0,     label: '06/23 ¥1,850,000（現金・約定済）' },
       ]
     },
     { key: 'sp500', name: 'SBI・V・S&P500インデックス', ticker: '2558', account: 'NISA積立枠', type: 'fund', proxyTicker: '2558',
+      navScale: 0,  // 2558.T取得後に設定
       defaultTranches: [
         { invested: 350000, refPrice: 0, label: '06/18 ¥350,000（ボーナス一括）' },
       ]
@@ -285,15 +287,31 @@
   function loadTranches(key) {
     const def = HOLDINGS_DEF.find(h => h.key === key);
     const stored = localStorage.getItem(`pf_${key}_tranches`);
-    if (stored) { try { return JSON.parse(stored); } catch(e) {} }
-    return def.defaultTranches.map(t => ({ ...t }));
+    let tranches;
+    if (stored) { try { tranches = JSON.parse(stored); } catch(e) {} }
+    if (!tranches) tranches = def.defaultTranches.map(t => ({ ...t }));
+    // 旧フォーマット（2840株価）→ 基準価額へ自動移行
+    if (def.navScale > 1) {
+      let migrated = false;
+      tranches = tranches.map(t => {
+        if (t.refPrice > 0 && t.refPrice < 5000) {
+          migrated = true;
+          return { ...t, refPrice: Math.round(t.refPrice * def.navScale) };
+        }
+        return t;
+      });
+      if (migrated) localStorage.setItem(`pf_${key}_tranches`, JSON.stringify(tranches));
+    }
+    return tranches;
   }
 
-  function calcFund(tranches, currentPrice) {
+  // navScale: プロキシETF価格→基準価額の換算係数（navScale=0は直接比率）
+  function calcFund(tranches, currentPrice, navScale) {
     let invested = 0, value = 0;
+    const estCurrentNAV = navScale > 0 ? currentPrice * navScale : currentPrice;
     for (const t of tranches) {
       invested += t.invested;
-      value += t.refPrice > 0 ? t.invested * (currentPrice / t.refPrice) : t.invested;
+      value += t.refPrice > 0 ? t.invested * (estCurrentNAV / t.refPrice) : t.invested;
     }
     return { invested, value };
   }
@@ -386,7 +404,7 @@
     // 投信の場合：プロキシETF価格変動から評価額を推定
     if (type === 'fund') {
       const tranches   = loadTranches(key);
-      const { invested, value: fundValue } = calcFund(tranches, currentPrice);
+      const { invested, value: fundValue } = calcFund(tranches, currentPrice, def.navScale);
       const fundPnl    = fundValue - invested;
       const fundPnlPct = invested > 0 ? (fundPnl / invested) * 100 : 0;
       const hasAll     = tranches.every(t => t.refPrice > 0);
@@ -445,8 +463,8 @@
       const rows = tranches.map((t, i) => `
         <div class="settings-row" style="gap:6px; flex-wrap:wrap; align-items:center;">
           <span style="font-size:0.72rem; color:var(--muted); flex:0 0 auto; min-width:210px;">${t.label}</span>
-          <label style="white-space:nowrap;">${def2.proxyTicker}購入時価格</label>
-          <input type="number" id="pf_${key}_ref_${i}" value="${t.refPrice || ''}" placeholder="例: 2738" style="width:90px;">
+          <label style="white-space:nowrap;">購入時の基準価額</label>
+          <input type="number" id="pf_${key}_ref_${i}" value="${t.refPrice || ''}" placeholder="例: 10439" style="width:90px;">
         </div>`).join('');
       return `<div class="settings-card">
         <div class="settings-title">${name}（${def2.account}）</div>
@@ -537,7 +555,7 @@
         const d = stockMap[def.key];
         if (def.type === 'fund') {
           if (d?.price) {
-            const { invested, value } = calcFund(loadTranches(def.key), d.price);
+            const { invested, value } = calcFund(loadTranches(def.key), d.price, def.navScale);
             totalCost  += invested;
             totalValue += value;
           }

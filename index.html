@@ -442,16 +442,29 @@
 
   // SBI NASDAQ100投信 トランシェ設定（portfolio.html と同じ localStorage キーを共有）
   const SBI_DEFAULT_TRANCHES = [
-    { invested: 12000,   refPrice: 2738, label: '06/09 ¥12,000（現金）' },
-    { invested: 12000,   refPrice: 2680, label: '06/10 ¥12,000（Vポイント）' },
-    { invested: 75816,   refPrice: 0,    label: '06/16 ¥75,816（現金）' },
-    { invested: 1850000, refPrice: 0,    label: '06/23 ¥1,850,000（現金・約定済）' },
+    { invested: 12000,   refPrice: 10439, label: '06/09 ¥12,000（現金）' },
+    { invested: 12000,   refPrice: 0,     label: '06/10 ¥12,000（Vポイント）' },
+    { invested: 75816,   refPrice: 0,     label: '06/16 ¥75,816（現金）' },
+    { invested: 1850000, refPrice: 0,     label: '06/23 ¥1,850,000（現金・約定済）' },
   ];
+  const SBI_NAV_SCALE = 10439 / 2738;  // 基準価額 ÷ 2840価格（06/09基準）
 
   function loadSbiTranches() {
     const stored = localStorage.getItem('pf_sbi_tranches');
-    if (stored) { try { return JSON.parse(stored); } catch(e) {} }
-    return SBI_DEFAULT_TRANCHES.map(t => ({ ...t }));
+    let tranches;
+    if (stored) { try { tranches = JSON.parse(stored); } catch(e) {} }
+    if (!tranches) tranches = SBI_DEFAULT_TRANCHES.map(t => ({ ...t }));
+    // 旧フォーマット（2840株価）→ 基準価額へ自動移行
+    let migrated = false;
+    tranches = tranches.map(t => {
+      if (t.refPrice > 0 && t.refPrice < 5000) {
+        migrated = true;
+        return { ...t, refPrice: Math.round(t.refPrice * SBI_NAV_SCALE) };
+      }
+      return t;
+    });
+    if (migrated) localStorage.setItem('pf_sbi_tranches', JSON.stringify(tranches));
+    return tranches;
   }
 
   function initFundSettings() {
@@ -463,8 +476,8 @@
     container.innerHTML = tranches.map((t, i) => `
       <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
         <span style="font-size:0.72rem; color:var(--muted); min-width:200px;">${t.label}</span>
-        <label>2840購入時価格</label>
-        <input type="number" id="fundRef_${i}" value="${t.refPrice || ''}" placeholder="例: 2738" style="width:90px;" class="input-field">
+        <label>購入時の基準価額</label>
+        <input type="number" id="fundRef_${i}" value="${t.refPrice || ''}" placeholder="例: 10439" style="width:90px;" class="input-field">
       </div>
     `).join('');
   }
@@ -566,12 +579,13 @@
       renderChart(d.ohlc);
     }
 
-    // SBI NASDAQ100投信 評価額計算（トランシェ対応）
+    // SBI NASDAQ100投信 評価額計算（基準価額方式）
     const sbiTranches = loadSbiTranches();
+    const estCurrentNAV = price * SBI_NAV_SCALE;
     let sbiInvested = 0, sbiValue = 0;
     for (const t of sbiTranches) {
       sbiInvested += t.invested;
-      sbiValue += t.refPrice > 0 ? t.invested * (price / t.refPrice) : t.invested;
+      sbiValue += t.refPrice > 0 ? t.invested * (estCurrentNAV / t.refPrice) : t.invested;
     }
     const fundPnl = sbiValue - sbiInvested;
     const fundPct = sbiInvested > 0 ? (fundPnl / sbiInvested) * 100 : 0;
