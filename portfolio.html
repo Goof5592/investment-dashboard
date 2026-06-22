@@ -267,10 +267,10 @@
   const HOLDINGS_DEF = [
     { key: '2840',  name: '2840 ETF（NASDAQインデックス）', ticker: '2840', defaultPrice: 2647, defaultShares: 37, account: 'NISA', type: 'etf' },
     { key: 'sbi',   name: 'SBI NASDAQ100投信', ticker: '2840', account: 'NISA成長枠', type: 'fund', proxyTicker: '2840',
-      navScale: 10410 / 2680,  // SBI基準価額 ÷ 2840価格（06/10時点）
+      navScale: 9988 / 2680,   // SBI基準価額 ÷ 2840価格（06/09-10時点）
       defaultTranches: [
-        { invested: 12000,   refPrice: 10410, label: '06/10 ¥12,000（Vポイント）' },
-        { invested: 75816,   refPrice: 0,     label: '06/16 ¥75,816（現金）' },
+        { invested: 12000,   refPrice: 9988,  label: '06/09 ¥12,000（Vポイント）' },
+        { invested: 75816,   refPrice: 10479, label: '06/16 ¥75,816（現金）' },
         { invested: 1850000, refPrice: 0,     label: '06/23 ¥1,850,000（現金・約定済）' },
       ]
     },
@@ -282,7 +282,7 @@
     },
     { key: '6269T', name: '三井海洋開発',     ticker: '6269', defaultPrice: 0,    defaultShares: 1, account: 'NISA', type: 'stock' },
     { key: '3993T', name: 'PKSHAテクノロジー', ticker: '3993', defaultPrice: 0,    defaultShares: 1, account: '特定', type: 'stock' },
-    { key: '5803T', name: 'フジクラ',          ticker: '5803', defaultPrice: 5550, defaultShares: 2, account: '特定', type: 'stock' },
+    { key: '5803T', name: 'フジクラ',          ticker: '5803', defaultPrice: 5500, defaultShares: 2, account: '特定', type: 'stock' },
   ];
 
   function loadTranches(key) {
@@ -311,8 +311,7 @@
       }
     }
 
-    // 06/09エントリを削除
-    if (key === 'sbi') tranches = tranches.filter(t => !t.label?.includes('06/09') && !t.date?.startsWith('2026-06-09'));
+    // 06/09は正規購入（Vポイント）なので保持
     if (!tranches.length) tranches = def.defaultTranches.map(t => ({ ...t }));
     return tranches;
   }

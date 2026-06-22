@@ -442,11 +442,11 @@
 
   // SBI NASDAQ100投信 トランシェ設定（portfolio.html と同じ localStorage キーを共有）
   const SBI_DEFAULT_TRANCHES = [
-    { invested: 12000,   refPrice: 10410, label: '06/10 ¥12,000（Vポイント）' },
-    { invested: 75816,   refPrice: 0,     label: '06/16 ¥75,816（現金）' },
+    { invested: 12000,   refPrice: 9988,  label: '06/09 ¥12,000（Vポイント）' },
+    { invested: 75816,   refPrice: 10479, label: '06/16 ¥75,816（現金）' },
     { invested: 1850000, refPrice: 0,     label: '06/23 ¥1,850,000（現金・約定済）' },
   ];
-  const SBI_NAV_SCALE = 10410 / 2680;  // 基準価額 ÷ 2840価格（06/09基準）
+  const SBI_NAV_SCALE = 9988 / 2680;  // 基準価額 ÷ 2840価格（06/09基準）
 
   function loadSbiTranches() {
     // fund-config.json を優先
@@ -460,8 +460,7 @@
     let tranches;
     if (stored) { try { tranches = JSON.parse(stored); } catch(e) {} }
     if (!tranches) tranches = SBI_DEFAULT_TRANCHES.map(t => ({ ...t }));
-    tranches = tranches.filter(t => !t.label?.includes('06/09'));
-    if (!tranches.length) tranches = SBI_DEFAULT_TRANCHES.map(t => ({ ...t }));
+    // 06/09は正規購入（Vポイント）なので保持
     tranches = tranches.map(t =>
       (t.refPrice > 0 && t.refPrice < 5000) ? { ...t, refPrice: Math.round(t.refPrice * SBI_NAV_SCALE) } : t
     );
