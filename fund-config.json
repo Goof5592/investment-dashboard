@@ -1,0 +1,16 @@
+{
+  "sbi_nasdaq100": {
+    "monthly_credit": 10000,
+    "tranches": [
+      { "date": "2026-06-10", "invested": 12000,   "navPrice": 10410, "label": "06/10 ¥12,000（Vポイント）" },
+      { "date": "2026-06-16", "invested": 75816,   "navPrice": 10410, "label": "06/16 ¥75,816（現金）" },
+      { "date": "2026-06-23", "invested": 1850000, "navPrice": 10490, "label": "06/23 ¥1,850,000（現金）" }
+    ]
+  },
+  "sp500": {
+    "monthly_credit": 0,
+    "tranches": [
+      { "date": "2026-06-18", "invested": 350000, "navPrice": 0, "label": "06/18 ¥350,000（ボーナス一括）" }
+    ]
+  }
+}

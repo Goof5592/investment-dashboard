@@ -217,6 +217,8 @@
 </footer>
 
 <script>
+  let _fundConfig = null;  // fund-config.json のキャッシュ
+
   // ===== GitHub Actions トリガー =====
   async function triggerUpdate() {
     let token = localStorage.getItem('gh_pat');
@@ -285,24 +287,32 @@
 
   function loadTranches(key) {
     const def = HOLDINGS_DEF.find(h => h.key === key);
-    const stored = localStorage.getItem(`pf_${key}_tranches`);
+    const configKey = key === 'sbi' ? 'sbi_nasdaq100' : key;
     let tranches;
-    if (stored) { try { tranches = JSON.parse(stored); } catch(e) {} }
-    if (!tranches) tranches = def.defaultTranches.map(t => ({ ...t }));
-    // 06/09エントリを削除（購入なしと判明）
-    if (key === 'sbi') tranches = tranches.filter(t => !t.label?.includes('06/09'));
-    // 旧フォーマット（2840株価）→ 基準価額へ自動移行
-    if (def.navScale > 1) {
-      let migrated = false;
-      tranches = tranches.map(t => {
-        if (t.refPrice > 0 && t.refPrice < 5000) {
-          migrated = true;
-          return { ...t, refPrice: Math.round(t.refPrice * def.navScale) };
-        }
-        return t;
-      });
-      if (migrated) localStorage.setItem(`pf_${key}_tranches`, JSON.stringify(tranches));
+
+    // fund-config.json を優先、なければ localStorage → defaultTranches
+    if (_fundConfig?.[configKey]?.tranches?.length) {
+      tranches = _fundConfig[configKey].tranches.map(t => ({ ...t, refPrice: t.navPrice || 0 }));
+    } else {
+      const stored = localStorage.getItem(`pf_${key}_tranches`);
+      if (stored) { try { tranches = JSON.parse(stored); } catch(e) {} }
+      if (!tranches) tranches = def.defaultTranches.map(t => ({ ...t }));
+      // 旧フォーマット（2840株価）→ 基準価額へ自動移行
+      if (def.navScale > 1) {
+        let migrated = false;
+        tranches = tranches.map(t => {
+          if (t.refPrice > 0 && t.refPrice < 5000) {
+            migrated = true;
+            return { ...t, refPrice: Math.round(t.refPrice * def.navScale) };
+          }
+          return t;
+        });
+        if (migrated) localStorage.setItem(`pf_${key}_tranches`, JSON.stringify(tranches));
+      }
     }
+
+    // 06/09エントリを削除
+    if (key === 'sbi') tranches = tranches.filter(t => !t.label?.includes('06/09') && !t.date?.startsWith('2026-06-09'));
     if (!tranches.length) tranches = def.defaultTranches.map(t => ({ ...t }));
     return tranches;
   }
@@ -337,16 +347,49 @@
     init();
   }
 
-  function saveFundTranches(key) {
+  async function saveFundTranches(key) {
+    const configKey = key === 'sbi' ? 'sbi_nasdaq100' : key;
     const tranches = loadTranches(key);
     tranches.forEach((t, i) => {
       const el = document.getElementById(`pf_${key}_ref_${i}`);
-      if (el) { const v = parseFloat(el.value); if (v > 0) t.refPrice = v; }
+      if (el) { const v = parseFloat(el.value); if (v > 0) { t.navPrice = v; t.refPrice = v; } }
     });
-    localStorage.setItem(`pf_${key}_tranches`, JSON.stringify(tranches));
+
     const msg = document.getElementById(`pf_${key}_msg`);
-    msg.textContent = '保存 ✓';
-    setTimeout(() => msg.textContent = '', 2000);
+    const token = localStorage.getItem('gh_pat');
+
+    // fund-config.json を更新してGitHubにコミット
+    if (token && _fundConfig) {
+      _fundConfig[configKey].tranches = tranches.map(({ date, invested, navPrice, refPrice, label }) => ({
+        date: date || '', invested, navPrice: navPrice || refPrice || 0, label: label || ''
+      }));
+      try {
+        const body = JSON.stringify(_fundConfig, null, 2);
+        const encoded = btoa(unescape(encodeURIComponent(body)));
+        const shaRes = await fetch(
+          'https://api.github.com/repos/Goof5592/investment-dashboard/contents/fund-config.json',
+          { headers: { 'Authorization': `token ${token}` } }
+        );
+        const { sha } = await shaRes.json();
+        const res = await fetch(
+          'https://api.github.com/repos/Goof5592/investment-dashboard/contents/fund-config.json',
+          {
+            method: 'PUT',
+            headers: { 'Authorization': `token ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: 'update: fund config via dashboard', content: encoded, sha })
+          }
+        );
+        msg.textContent = res.ok ? '保存 ✓ (GitHub)' : `エラー: ${res.status}`;
+      } catch(e) {
+        localStorage.setItem(`pf_${key}_tranches`, JSON.stringify(tranches));
+        msg.textContent = '保存 ✓ (ローカル)';
+      }
+    } else {
+      localStorage.setItem(`pf_${key}_tranches`, JSON.stringify(tranches));
+      msg.textContent = '保存 ✓ (ローカル)';
+    }
+
+    setTimeout(() => msg.textContent = '', 3000);
     init();
   }
 
@@ -498,12 +541,14 @@
 
     try {
       // 並列フェッチ
-      const [dataRes, reRes, pkshaRes, semiRes] = await Promise.all([
+      const [dataRes, reRes, pkshaRes, semiRes, fundCfg] = await Promise.all([
         fetch(`data.json?t=${Date.now()}`).then(r=>r.json()),
         fetch(`re-data.json?t=${Date.now()}`).then(r=>r.json()),
         fetch(`pksha-data.json?t=${Date.now()}`).then(r=>r.json()),
         fetch(`semi-data.json?t=${Date.now()}`).then(r=>r.json()),
+        fetch(`fund-config.json?t=${Date.now()}`).then(r=>r.json()).catch(()=>null),
       ]);
+      _fundConfig = fundCfg;
 
       // 各銘柄データ
       const stockMap = {

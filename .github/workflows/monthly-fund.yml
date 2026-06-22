@@ -1,0 +1,79 @@
+name: Monthly Fund Tranche
+
+on:
+  schedule:
+    - cron: '0 1 8 * *'   # 毎月8日 01:00 UTC = JST 10:00（7日決済分を翌朝追加）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add monthly SBI NASDAQ100 tranche
+        run: |
+          python3 << 'PYEOF'
+          import json, datetime, urllib.request
+
+          HEADERS = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+
+          # 2840.T の最新終値を取得
+          url = "https://query1.finance.yahoo.com/v8/finance/chart/2840.T?interval=1d&range=5d"
+          req = urllib.request.Request(url, headers=HEADERS)
+          price = None
+          try:
+              with urllib.request.urlopen(req, timeout=15) as resp:
+                  data = json.loads(resp.read())
+                  closes = data['chart']['result'][0]['indicators']['quote'][0]['close']
+                  price = next((c for c in reversed(closes) if c is not None), None)
+          except Exception as e:
+              print(f"Error: {e}")
+
+          if not price:
+              print("価格取得失敗、スキップ")
+              exit(0)
+
+          # SBI NASDAQ100 基準価額を推定（06/10基準: NAV=10410, 2840=2680）
+          NAV_SCALE = 10410 / 2680
+          nav_estimate = round(price * NAV_SCALE)
+
+          # 購入日は7日（今日=8日）
+          today = datetime.date.today()
+          purchase_date = today.replace(day=7)
+          ym = purchase_date.strftime('%Y-%m')
+          label = f"{purchase_date.strftime('%m/%d')} ¥10,000（クレジット定期）"
+
+          with open('fund-config.json', 'r', encoding='utf-8') as f:
+              config = json.load(f)
+
+          # 同月エントリが既にあればスキップ
+          existing = [t for t in config['sbi_nasdaq100']['tranches']
+                      if t.get('date', '').startswith(ym)]
+          if existing:
+              print(f"{ym} のエントリは既に存在します")
+              exit(0)
+
+          config['sbi_nasdaq100']['tranches'].append({
+              "date": purchase_date.isoformat(),
+              "invested": 10000,
+              "navPrice": nav_estimate,
+              "label": label
+          })
+
+          with open('fund-config.json', 'w', encoding='utf-8') as f:
+              json.dump(config, f, ensure_ascii=False, indent=2)
+
+          print(f"追加: {label} @ 推定NAV {nav_estimate}")
+          PYEOF
+
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add fund-config.json
+          git diff --staged --quiet || git commit -m "chore: add monthly SBI NASDAQ100 tranche [skip ci]"
+          git push

@@ -449,23 +449,22 @@
   const SBI_NAV_SCALE = 10410 / 2680;  // 基準価額 ÷ 2840価格（06/09基準）
 
   function loadSbiTranches() {
+    // fund-config.json を優先
+    if (_fundConfig?.sbi_nasdaq100?.tranches?.length) {
+      return _fundConfig.sbi_nasdaq100.tranches
+        .filter(t => !t.date?.startsWith('2026-06-09'))
+        .map(t => ({ ...t, refPrice: t.navPrice || 0 }));
+    }
+    // フォールバック: localStorage → デフォルト
     const stored = localStorage.getItem('pf_sbi_tranches');
     let tranches;
     if (stored) { try { tranches = JSON.parse(stored); } catch(e) {} }
     if (!tranches) tranches = SBI_DEFAULT_TRANCHES.map(t => ({ ...t }));
-    // 06/09エントリを削除（購入なしと判明）
     tranches = tranches.filter(t => !t.label?.includes('06/09'));
     if (!tranches.length) tranches = SBI_DEFAULT_TRANCHES.map(t => ({ ...t }));
-    // 旧フォーマット（2840株価）→ 基準価額へ自動移行
-    let migrated = false;
-    tranches = tranches.map(t => {
-      if (t.refPrice > 0 && t.refPrice < 5000) {
-        migrated = true;
-        return { ...t, refPrice: Math.round(t.refPrice * SBI_NAV_SCALE) };
-      }
-      return t;
-    });
-    if (migrated) localStorage.setItem('pf_sbi_tranches', JSON.stringify(tranches));
+    tranches = tranches.map(t =>
+      (t.refPrice > 0 && t.refPrice < 5000) ? { ...t, refPrice: Math.round(t.refPrice * SBI_NAV_SCALE) } : t
+    );
     return tranches;
   }
 
@@ -533,10 +532,16 @@
     el.innerHTML = `<span class="${cls}">${sign(change)}${fmtF(change)} (${sign(pct)}${fmtF(pct)}%)</span>`;
   }
 
+  let _fundConfig = null;
+
   // --- data.json から読む（GitHub Actions がサーバー側で取得したデータ）---
   async function fetchFromDataJSON() {
     try {
-      const res = await fetch(`data.json?t=${Date.now()}`);
+      const [res, fundRes] = await Promise.all([
+        fetch(`data.json?t=${Date.now()}`),
+        fetch(`fund-config.json?t=${Date.now()}`).catch(() => null),
+      ]);
+      if (fundRes?.ok) _fundConfig = await fundRes.json().catch(() => null);
       if (!res.ok) return false;
       const d = await res.json();
       if (!d.updated || d.updated === 0) return false;
